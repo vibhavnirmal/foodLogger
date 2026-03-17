@@ -8,8 +8,6 @@ const barcode = {
     detectedHandler: null,
     lastDetectedCode: null,
     lastDetectedAt: 0,
-    pendingCode: null,
-    pendingCount: 0,
 
     getVideoConstraints() {
         return {
@@ -136,16 +134,10 @@ const barcode = {
                 type: 'LiveStream',
                 target,
                 constraints: this.getVideoConstraints(),
-                area: {
-                    top: '20%',
-                    right: '10%',
-                    left: '10%',
-                    bottom: '20%',
-                },
             },
             locator: {
                 patchSize: 'medium',
-                halfSample: false,
+                halfSample: true,
             },
             decoder: {
                 readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader'],
@@ -173,21 +165,7 @@ const barcode = {
                 return;
             }
 
-            // Require two consecutive matching reads to reduce false positives.
-            if (this.pendingCode === code) {
-                this.pendingCount += 1;
-            } else {
-                this.pendingCode = code;
-                this.pendingCount = 1;
-            }
-
-            if (this.pendingCount < 2) {
-                return;
-            }
-
             if (!this.isLikelyBarcode(code)) {
-                this.pendingCode = null;
-                this.pendingCount = 0;
                 return;
             }
 
@@ -198,8 +176,6 @@ const barcode = {
 
             this.lastDetectedCode = code;
             this.lastDetectedAt = now;
-            this.pendingCode = null;
-            this.pendingCount = 0;
             this.handleDetectedBarcode(code);
         };
 
@@ -214,8 +190,31 @@ const barcode = {
             return false;
         }
 
-        // Keep common retail barcode sizes and reject noisy partial reads.
-        return [8, 12, 13, 14].includes(code.length);
+        if (![8, 12, 13, 14].includes(code.length)) {
+            return false;
+        }
+
+        // UPC-E and EAN-8 can be valid even if checksum behavior differs by encoding details.
+        if (code.length === 8) {
+            return true;
+        }
+
+        return this.hasValidMod10CheckDigit(code);
+    },
+
+    hasValidMod10CheckDigit(code) {
+        const digits = code.split('').map(Number);
+        const checkDigit = digits[digits.length - 1];
+        let sum = 0;
+        let multiplier = 3;
+
+        for (let i = digits.length - 2; i >= 0; i -= 1) {
+            sum += digits[i] * multiplier;
+            multiplier = multiplier === 3 ? 1 : 3;
+        }
+
+        const expected = (10 - (sum % 10)) % 10;
+        return expected === checkDigit;
     },
 
     stopScanner() {
@@ -231,8 +230,6 @@ const barcode = {
             }
         }
         this.isScanning = false;
-        this.pendingCode = null;
-        this.pendingCount = 0;
     },
 
     async handleDetectedBarcode(barcodeValue) {

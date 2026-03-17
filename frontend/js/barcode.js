@@ -8,6 +8,8 @@ const barcode = {
     detectedHandler: null,
     lastDetectedCode: null,
     lastDetectedAt: 0,
+    pendingCode: null,
+    pendingCount: 0,
 
     getVideoConstraints() {
         return {
@@ -134,12 +136,24 @@ const barcode = {
                 type: 'LiveStream',
                 target,
                 constraints: this.getVideoConstraints(),
+                area: {
+                    top: '20%',
+                    right: '10%',
+                    left: '10%',
+                    bottom: '20%',
+                },
+            },
+            locator: {
+                patchSize: 'medium',
+                halfSample: false,
             },
             decoder: {
-                readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
+                readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader'],
+                multiple: false,
             },
             locate: true,
             numOfWorkers: 2,
+            frequency: 10,
         };
 
         await new Promise((resolve, reject) => {
@@ -159,6 +173,24 @@ const barcode = {
                 return;
             }
 
+            // Require two consecutive matching reads to reduce false positives.
+            if (this.pendingCode === code) {
+                this.pendingCount += 1;
+            } else {
+                this.pendingCode = code;
+                this.pendingCount = 1;
+            }
+
+            if (this.pendingCount < 2) {
+                return;
+            }
+
+            if (!this.isLikelyBarcode(code)) {
+                this.pendingCode = null;
+                this.pendingCount = 0;
+                return;
+            }
+
             const now = Date.now();
             if (this.lastDetectedCode === code && now - this.lastDetectedAt < 1500) {
                 return;
@@ -166,6 +198,8 @@ const barcode = {
 
             this.lastDetectedCode = code;
             this.lastDetectedAt = now;
+            this.pendingCode = null;
+            this.pendingCount = 0;
             this.handleDetectedBarcode(code);
         };
 
@@ -173,6 +207,15 @@ const barcode = {
         await this.enhanceActiveCameraTrack();
         this.isScanning = true;
         document.body.classList.add('overflow-hidden');
+    },
+
+    isLikelyBarcode(code) {
+        if (!/^\d+$/.test(code)) {
+            return false;
+        }
+
+        // Keep common retail barcode sizes and reject noisy partial reads.
+        return [8, 12, 13, 14].includes(code.length);
     },
 
     stopScanner() {
@@ -188,6 +231,8 @@ const barcode = {
             }
         }
         this.isScanning = false;
+        this.pendingCode = null;
+        this.pendingCount = 0;
     },
 
     async handleDetectedBarcode(barcodeValue) {

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  foodlogger:
+    build: .
+    ports:
+      - "7654:7654"
+    volumes:
+      - foodlogger_data:/app/data
+    environment:
+      - DEBUG=False
+      - PORT=7654
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7654/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  foodlogger_data:
+    driver: local

@@ -18,7 +18,8 @@ import java.time.LocalDateTime
     ],
     indices = [
         Index("barcode"),
-        Index("expiryDate")
+        Index("expiryDate"),
+        Index("boughtFromStoreId")
     ]
 )
 data class InventoryEntity(
@@ -30,6 +31,7 @@ data class InventoryEntity(
     val dateBought: LocalDateTime?,
     val expiryDate: LocalDateTime?,
     val storageLocation: String?,
+    val boughtFromStoreId: Int?,
     val nameOverride: String?,
     val almostFinished: Boolean = false,
     val dateCreated: LocalDateTime = LocalDateTime.now(),

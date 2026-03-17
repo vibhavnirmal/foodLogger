@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.FoodLogger" parent="android:Theme.Material.Light.DarkActionBar">
-        <item name="android:colorPrimary">@android:color/holo_blue_bright</item>
-        <item name="android:colorPrimaryDark">@android:color/holo_blue_dark</item>
-        <item name="android:colorAccent">@android:color/holo_red_light</item>
+    <style name="Theme.FoodLogger" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@android:color/holo_blue_dark</item>
+        <item name="colorPrimaryVariant">@android:color/holo_blue_dark</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">@android:color/holo_green_dark</item>
+        <item name="colorOnSecondary">@android:color/white</item>
+        <item name="android:statusBarColor">@android:color/holo_blue_dark</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.FoodLogger.MaterialAlertDialog</item>
+    </style>
+
+    <style name="ThemeOverlay.FoodLogger.MaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.MaterialComponents.MediumComponent</item>
     </style>
 </resources>

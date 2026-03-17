@@ -43,4 +43,16 @@ object DatabaseModule {
     fun provideRecipeIngredientDao(database: FoodLoggerDatabase): RecipeIngredientDao {
         return database.recipeIngredientDao()
     }
+
+    @Singleton
+    @Provides
+    fun provideStorageLocationDao(database: FoodLoggerDatabase): StorageLocationDao {
+        return database.storageLocationDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideStoreDao(database: FoodLoggerDatabase): StoreDao {
+        return database.storeDao()
+    }
 }

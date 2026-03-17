@@ -38,14 +38,18 @@ class ProductViewModel @Inject constructor(
     private fun loadProducts() {
         viewModelScope.launch {
             _isLoading.value = true
+            var firstEmission = true
             try {
                 repository.getAllProducts().collect { items ->
                     _products.value = items
                     searchProducts(_searchQuery.value)
+                    if (firstEmission) {
+                        _isLoading.value = false
+                        firstEmission = false
+                    }
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Unknown error loading products"
-            } finally {
                 _isLoading.value = false
             }
         }

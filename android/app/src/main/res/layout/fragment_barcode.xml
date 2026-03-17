@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+    <RadioGroup
+        android:id="@+id/modeToggleGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/modeCamera"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/camera" />
+
+        <RadioButton
+            android:id="@+id/modeManual"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/manual_entry" />
+    </RadioGroup>
+    <FrameLayout android:id="@+id/cameraContainer" android:layout_width="match_parent" android:layout_height="220dp" android:layout_marginTop="12dp">
+        <androidx.camera.view.PreviewView android:id="@+id/previewView" android:layout_width="match_parent" android:layout_height="match_parent" />
+        <LinearLayout android:id="@+id/permissionGroup" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical" android:padding="24dp">
+            <TextView android:id="@+id/cameraHintText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:gravity="center" android:text="@string/camera_required_title" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/grantPermissionButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="@string/action_grant_camera" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/manualEntryButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/action_use_manual_entry" />
+        </LinearLayout>
+    </FrameLayout>
+    <ScrollView android:id="@+id/manualContainer" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:visibility="gone">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="12dp">
+            <com.google.android.material.textfield.TextInputLayout android:id="@+id/barcodeInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <com.google.android.material.textfield.TextInputEditText android:id="@+id/barcodeInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/hint_barcode" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.button.MaterialButton android:id="@+id/searchButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/action_search_product" />
+            <LinearLayout android:id="@+id/errorCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="#FFEBEE" android:padding="12dp" android:layout_marginTop="12dp" android:visibility="gone">
+                <TextView android:id="@+id/errorText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@android:color/holo_red_dark" />
+            </LinearLayout>
+            <ProgressBar android:id="@+id/progressBar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="12dp" android:visibility="gone" />
+            <LinearLayout android:id="@+id/foundCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="12dp" android:visibility="gone">
+                <TextView android:id="@+id/productFoundText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" />
+                <TextView android:id="@+id/productMetaText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" />
+            </LinearLayout>
+            <com.google.android.material.textfield.TextInputLayout android:id="@+id/quantityInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp">
+                <com.google.android.material.textfield.TextInputEditText android:id="@+id/quantityInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="1" android:hint="@string/label_quantity" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp">
+                <com.google.android.material.textfield.TextInputEditText android:id="@+id/expiryInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/label_expiry_date" android:focusable="false" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp">
+                <com.google.android.material.textfield.TextInputEditText android:id="@+id/dateBoughtInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/label_date_bought" android:focusable="false" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+                <AutoCompleteTextView android:id="@+id/storageInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:clickable="true" android:cursorVisible="false" android:focusable="false" android:hint="@string/label_storage_location" android:inputType="none" android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+                <AutoCompleteTextView android:id="@+id/boughtFromInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:clickable="true" android:cursorVisible="false" android:focusable="false" android:hint="@string/label_bought_from" android:inputType="none" android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp">
+                <com.google.android.material.textfield.TextInputEditText android:id="@+id/nameOverrideInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/label_display_name_override" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.button.MaterialButton android:id="@+id/addInventoryButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="@string/action_add_inventory" />
+            <LinearLayout android:id="@+id/manualCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:paddingTop="16dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/label_product_details" android:textStyle="bold" />
+                <com.google.android.material.textfield.TextInputLayout android:id="@+id/manualNameInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/manualNameInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/label_product_name" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/manualBrandInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/label_brand_optional" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.button.MaterialButton android:id="@+id/addManualButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="@string/action_add_product_inventory" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

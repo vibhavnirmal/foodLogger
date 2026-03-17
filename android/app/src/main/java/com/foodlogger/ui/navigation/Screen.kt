@@ -5,5 +5,6 @@ enum class Screen {
     WISHLIST,
     RECIPES,
     BARCODE,
-    PRODUCTS
+    PRODUCTS,
+    SETTINGS
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="8dp">
+        <com.google.android.material.textfield.TextInputLayout android:id="@+id/recipeNameInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content"><com.google.android.material.textfield.TextInputEditText android:id="@+id/recipeNameInputEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/label_recipe_name" /></com.google.android.material.textfield.TextInputLayout>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/label_cook_time" />
+        <Spinner android:id="@+id/timeDropdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" />
+        <com.google.android.material.textfield.TextInputLayout android:id="@+id/productInputLayout" style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"><AutoCompleteTextView android:id="@+id/productDropdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:clickable="true" android:cursorVisible="false" android:focusable="false" android:hint="@string/label_add_ingredient" android:inputType="none" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.button.MaterialButton android:id="@+id/addIngredientButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/label_add_ingredient" />
+        <TextView android:id="@+id/ingredientsError" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@android:color/holo_red_dark" android:layout_marginTop="8dp" />
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/ingredientsRecycler" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" />
+    </LinearLayout>
+</ScrollView>

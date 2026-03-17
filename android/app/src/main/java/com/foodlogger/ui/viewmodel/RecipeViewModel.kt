@@ -42,13 +42,17 @@ class RecipeViewModel @Inject constructor(
     private fun loadRecipes() {
         viewModelScope.launch {
             _isLoading.value = true
+            var firstEmission = true
             try {
                 repository.getAllRecipes().collect { items ->
                     _recipes.value = items.sortedBy { it.name }
+                    if (firstEmission) {
+                        _isLoading.value = false
+                        firstEmission = false
+                    }
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Unknown error loading recipes"
-            } finally {
                 _isLoading.value = false
             }
         }

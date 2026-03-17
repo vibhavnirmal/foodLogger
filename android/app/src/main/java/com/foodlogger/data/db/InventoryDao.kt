@@ -19,6 +19,15 @@ interface InventoryDao {
     @Query("SELECT * FROM inventory WHERE id = :id")
     suspend fun getInventoryById(id: Int): InventoryEntity?
 
+    @Query("SELECT COUNT(*) FROM inventory WHERE storageLocation = :locationName")
+    suspend fun countByStorageLocation(locationName: String): Int
+
+    @Query("SELECT COUNT(*) FROM inventory WHERE boughtFromStoreId = :storeId")
+    suspend fun countByBoughtFromStoreId(storeId: Int): Int
+
+    @Query("UPDATE inventory SET storageLocation = :newName WHERE storageLocation = :oldName")
+    suspend fun renameStorageLocationReferences(oldName: String, newName: String)
+
     @Query("""
         SELECT * FROM inventory 
         ORDER BY 

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.foodlogger.data.repository.FoodLoggerRepository
 import com.foodlogger.domain.model.Product
+import com.foodlogger.domain.model.Store
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,8 +49,46 @@ class BarcodeViewModel @Inject constructor(
     private val _storageLocation = MutableStateFlow("")
     val storageLocation: StateFlow<String> = _storageLocation.asStateFlow()
 
+    private val _availableStorageLocations = MutableStateFlow<List<String>>(emptyList())
+    val availableStorageLocations: StateFlow<List<String>> = _availableStorageLocations.asStateFlow()
+
+    private val _availableStores = MutableStateFlow<List<Store>>(emptyList())
+    val availableStores: StateFlow<List<Store>> = _availableStores.asStateFlow()
+
+    private val _boughtFromStoreId = MutableStateFlow<Int?>(null)
+    val boughtFromStoreId: StateFlow<Int?> = _boughtFromStoreId.asStateFlow()
+
     private val _nameOverride = MutableStateFlow("")
     val nameOverride: StateFlow<String> = _nameOverride.asStateFlow()
+
+    init {
+        observeStorageLocations()
+        observeStores()
+    }
+
+    private fun observeStorageLocations() {
+        viewModelScope.launch {
+            runCatching {
+                repository.getAllStorageLocations().collect { locations ->
+                    _availableStorageLocations.value = locations.map { it.name }
+                }
+            }.onFailure {
+                _errorMessage.value = it.message ?: "Error loading storage locations"
+            }
+        }
+    }
+
+    private fun observeStores() {
+        viewModelScope.launch {
+            runCatching {
+                repository.getAllStores().collect { stores ->
+                    _availableStores.value = stores
+                }
+            }.onFailure {
+                _errorMessage.value = it.message ?: "Error loading stores"
+            }
+        }
+    }
 
     fun setBarcodeScanned(barcode: String) {
         _errorMessage.value = null
@@ -114,6 +153,10 @@ class BarcodeViewModel @Inject constructor(
         _nameOverride.value = value
     }
 
+    fun setBoughtFromStoreId(value: Int?) {
+        _boughtFromStoreId.value = value
+    }
+
     suspend fun addScannedItemToInventory() {
         val barcode = _scannedBarcode.value ?: run {
             _errorMessage.value = "No barcode scanned"
@@ -128,6 +171,7 @@ class BarcodeViewModel @Inject constructor(
                 dateBought = _dateBought.value ?: LocalDateTime.now(),
                 expiryDate = _expiryDate.value,
                 storageLocation = _storageLocation.value.trim().ifEmpty { null },
+                boughtFromStoreId = _boughtFromStoreId.value,
                 nameOverride = _nameOverride.value.trim().ifEmpty { null }
             )
             // Reset form
@@ -161,6 +205,7 @@ class BarcodeViewModel @Inject constructor(
                 dateBought = _dateBought.value ?: LocalDateTime.now(),
                 expiryDate = _expiryDate.value,
                 storageLocation = _storageLocation.value.trim().ifEmpty { null },
+                boughtFromStoreId = _boughtFromStoreId.value,
                 nameOverride = _nameOverride.value.trim().ifEmpty { null }
             )
             resetForm()
@@ -204,6 +249,7 @@ class BarcodeViewModel @Inject constructor(
         _dateBought.value = null
         _dateBoughtInput.value = ""
         _storageLocation.value = ""
+        _boughtFromStoreId.value = null
         _nameOverride.value = ""
         _errorMessage.value = null
     }

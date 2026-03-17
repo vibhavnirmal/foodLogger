@@ -6,6 +6,7 @@ import com.foodlogger.data.repository.FoodLoggerRepository
 import com.foodlogger.domain.model.ExpiryStatus
 import com.foodlogger.domain.model.InventoryItem
 import com.foodlogger.domain.model.Product
+import com.foodlogger.domain.model.Store
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,12 @@ class InventoryViewModel @Inject constructor(
 
     private val _availableProducts = MutableStateFlow<List<Product>>(emptyList())
     val availableProducts: StateFlow<List<Product>> = _availableProducts.asStateFlow()
+
+    private val _availableStorageLocations = MutableStateFlow<List<String>>(emptyList())
+    val availableStorageLocations: StateFlow<List<String>> = _availableStorageLocations.asStateFlow()
+
+    private val _availableStores = MutableStateFlow<List<Store>>(emptyList())
+    val availableStores: StateFlow<List<Store>> = _availableStores.asStateFlow()
 
     private val _sortBy = MutableStateFlow<SortOption>(SortOption.EXPIRY_STATUS)
     val sortBy: StateFlow<SortOption> = _sortBy.asStateFlow()
@@ -50,19 +57,37 @@ class InventoryViewModel @Inject constructor(
     init {
         loadInventory()
         loadProducts()
+        loadStorageLocations()
+        loadStores()
+    }
+
+    private fun loadStores() {
+        viewModelScope.launch {
+            try {
+                repository.getAllStores().collect { stores ->
+                    _availableStores.value = stores
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error loading stores"
+            }
+        }
     }
 
     private fun loadInventory() {
         viewModelScope.launch {
             _isLoading.value = true
+            var firstEmission = true
             try {
                 repository.getAllInventory().collect { items ->
                     _inventoryItems.value = items
                     applyFilterAndSort()
+                    if (firstEmission) {
+                        _isLoading.value = false
+                        firstEmission = false
+                    }
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Unknown error loading inventory"
-            } finally {
                 _isLoading.value = false
             }
         }
@@ -76,6 +101,18 @@ class InventoryViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Error loading products"
+            }
+        }
+    }
+
+    private fun loadStorageLocations() {
+        viewModelScope.launch {
+            try {
+                repository.getAllStorageLocations().collect { locations ->
+                    _availableStorageLocations.value = locations.map { it.name }
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error loading storage locations"
             }
         }
     }
@@ -122,6 +159,7 @@ class InventoryViewModel @Inject constructor(
         quantity: Float,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
+        boughtFromStoreId: Int?,
         nameOverride: String?,
         almostFinished: Boolean
     ) {
@@ -131,6 +169,7 @@ class InventoryViewModel @Inject constructor(
                 quantity = quantity,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
+                boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride,
                 almostFinished = almostFinished
             )
@@ -154,6 +193,7 @@ class InventoryViewModel @Inject constructor(
         expiryDate: LocalDateTime?,
         dateBought: LocalDateTime? = LocalDateTime.now(),
         storageLocation: String? = null,
+        boughtFromStoreId: Int? = null,
         nameOverride: String? = null,
     ) {
         try {
@@ -164,6 +204,7 @@ class InventoryViewModel @Inject constructor(
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
+                boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride
             )
         } catch (e: Exception) {
@@ -197,7 +238,9 @@ class InventoryViewModel @Inject constructor(
     fun saveInventoryItem(
         item: InventoryItem,
         quantity: Float,
+        expiryDate: LocalDateTime?,
         storageLocation: String?,
+        boughtFromStoreId: Int?,
         nameOverride: String?,
         almostFinished: Boolean
     ) {
@@ -205,8 +248,9 @@ class InventoryViewModel @Inject constructor(
             updateInventoryItem(
                 id = item.id,
                 quantity = quantity,
-                expiryDate = item.expiryDate,
+                expiryDate = expiryDate,
                 storageLocation = storageLocation,
+                boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride,
                 almostFinished = almostFinished
             )
@@ -220,6 +264,7 @@ class InventoryViewModel @Inject constructor(
         expiryDate: LocalDateTime?,
         dateBought: LocalDateTime?,
         storageLocation: String?,
+        boughtFromStoreId: Int?,
         nameOverride: String?
     ) {
         viewModelScope.launch {
@@ -230,6 +275,7 @@ class InventoryViewModel @Inject constructor(
                 expiryDate = expiryDate,
                 dateBought = dateBought,
                 storageLocation = storageLocation,
+                boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride
             )
         }

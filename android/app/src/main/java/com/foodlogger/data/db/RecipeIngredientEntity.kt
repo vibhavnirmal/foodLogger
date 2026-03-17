@@ -2,6 +2,7 @@ package com.foodlogger.data.db
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
@@ -19,6 +20,10 @@ import androidx.room.PrimaryKey
             childColumns = ["barcode"],
             onDelete = ForeignKey.CASCADE
         )
+    ],
+    indices = [
+        Index(value = ["recipeId"]),
+        Index(value = ["barcode"])
     ]
 )
 data class RecipeIngredientEntity(

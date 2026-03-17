@@ -13,6 +13,8 @@ import com.foodlogger.domain.model.Product
 import com.foodlogger.domain.model.Recipe
 import com.foodlogger.domain.model.RecipeIngredient
 import com.foodlogger.domain.model.RecipeIngredientDraft
+import com.foodlogger.domain.model.Store
+import com.foodlogger.domain.model.StorageLocation
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -99,7 +101,16 @@ class FoodLoggerRepository @Inject constructor(
     }
 
     // INVENTORY operations
-    suspend fun addInventoryItem(barcode: String, quantity: Float, unit: String, dateBought: LocalDateTime?, expiryDate: LocalDateTime?, storageLocation: String?, nameOverride: String?): Long {
+    suspend fun addInventoryItem(
+        barcode: String,
+        quantity: Float,
+        unit: String,
+        dateBought: LocalDateTime?,
+        expiryDate: LocalDateTime?,
+        storageLocation: String?,
+        boughtFromStoreId: Int?,
+        nameOverride: String?
+    ): Long {
         return database.inventoryDao().insertInventory(
             InventoryEntity(
                 barcode = barcode,
@@ -108,6 +119,7 @@ class FoodLoggerRepository @Inject constructor(
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
+                boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride,
                 almostFinished = false
             )
@@ -121,6 +133,7 @@ class FoodLoggerRepository @Inject constructor(
         dateBought: LocalDateTime?,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
+        boughtFromStoreId: Int?,
         nameOverride: String?
     ): Long {
         return database.withTransaction {
@@ -132,38 +145,68 @@ class FoodLoggerRepository @Inject constructor(
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
+                boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride
             )
         }
     }
 
     fun getAllInventory(): Flow<List<InventoryItem>> {
-        return database.inventoryDao().getAllInventory().combine(database.productDao().getAllProducts()) { inventory, products ->
+        return combine(
+            database.inventoryDao().getAllInventory(),
+            database.productDao().getAllProducts(),
+            database.storeDao().getAllStoresFlow()
+        ) { inventory, products, stores ->
             val productMap = products.associateBy { it.barcode }
+            val storeMap = stores.associateBy { it.id }
             inventory.map { inventoryEntity ->
                 val product = productMap[inventoryEntity.barcode]
-                inventoryEntity.toInventoryItem(product?.name ?: inventoryEntity.barcode)
+                val store = inventoryEntity.boughtFromStoreId?.let { storeMap[it] }
+                inventoryEntity.toInventoryItem(
+                    productName = product?.name ?: inventoryEntity.barcode,
+                    storeName = store?.name,
+                    storeImageUri = store?.imageUri
+                )
             }
         }
     }
 
     fun getAlmostFinishedItems(): Flow<List<InventoryItem>> {
-        return database.inventoryDao().getAlmostFinishedItems().combine(database.productDao().getAllProducts()) { inventory, products ->
+        return combine(
+            database.inventoryDao().getAlmostFinishedItems(),
+            database.productDao().getAllProducts(),
+            database.storeDao().getAllStoresFlow()
+        ) { inventory, products, stores ->
             val productMap = products.associateBy { it.barcode }
+            val storeMap = stores.associateBy { it.id }
             inventory.map { inventoryEntity ->
                 val product = productMap[inventoryEntity.barcode]
-                inventoryEntity.toInventoryItem(product?.name ?: inventoryEntity.barcode)
+                val store = inventoryEntity.boughtFromStoreId?.let { storeMap[it] }
+                inventoryEntity.toInventoryItem(
+                    productName = product?.name ?: inventoryEntity.barcode,
+                    storeName = store?.name,
+                    storeImageUri = store?.imageUri
+                )
             }
         }
     }
 
-    suspend fun updateInventoryItem(id: Int, quantity: Float, expiryDate: LocalDateTime?, storageLocation: String?, nameOverride: String?, almostFinished: Boolean) {
+    suspend fun updateInventoryItem(
+        id: Int,
+        quantity: Float,
+        expiryDate: LocalDateTime?,
+        storageLocation: String?,
+        boughtFromStoreId: Int?,
+        nameOverride: String?,
+        almostFinished: Boolean
+    ) {
         val existingItem = database.inventoryDao().getInventoryById(id) ?: return
         database.inventoryDao().updateInventory(
             existingItem.copy(
                 quantity = quantity,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
+                boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride,
                 almostFinished = almostFinished
             )
@@ -172,6 +215,99 @@ class FoodLoggerRepository @Inject constructor(
 
     suspend fun deleteInventoryItem(id: Int) {
         database.inventoryDao().deleteInventoryById(id)
+    }
+
+    // STORAGE LOCATION operations
+    fun getAllStorageLocations(): Flow<List<StorageLocation>> {
+        return database.storageLocationDao().getAllLocationsFlow().combine(database.inventoryDao().getAllInventory()) { locations, _ ->
+            locations.map { StorageLocation(id = it.id, name = it.name) }
+        }
+    }
+
+    suspend fun addStorageLocation(name: String) {
+        val normalizedName = name.trim()
+        require(normalizedName.isNotBlank()) { "Storage location name is required" }
+        require(database.storageLocationDao().getByName(normalizedName) == null) { "Storage location already exists" }
+
+        database.storageLocationDao().insert(
+            com.foodlogger.data.db.StorageLocationEntity(name = normalizedName)
+        )
+    }
+
+    suspend fun renameStorageLocation(locationId: Int, newName: String) {
+        val normalizedName = newName.trim()
+        require(normalizedName.isNotBlank()) { "Storage location name is required" }
+
+        val existing = database.storageLocationDao().getById(locationId)
+            ?: throw IllegalArgumentException("Storage location not found")
+
+        val duplicate = database.storageLocationDao().getByName(normalizedName)
+        require(duplicate == null || duplicate.id == locationId) { "Storage location already exists" }
+
+        if (existing.name != normalizedName) {
+            database.withTransaction {
+                database.storageLocationDao().update(existing.copy(name = normalizedName))
+                database.inventoryDao().renameStorageLocationReferences(existing.name, normalizedName)
+            }
+        }
+    }
+
+    suspend fun deleteStorageLocation(locationId: Int) {
+        val existing = database.storageLocationDao().getById(locationId)
+            ?: throw IllegalArgumentException("Storage location not found")
+
+        val usageCount = database.inventoryDao().countByStorageLocation(existing.name)
+        require(usageCount == 0) { "Location is used by inventory items. Reassign those items before deleting." }
+
+        database.storageLocationDao().deleteById(locationId)
+    }
+
+    // STORE operations
+    fun getAllStores(): Flow<List<Store>> {
+        return database.storeDao().getAllStoresFlow().combine(database.inventoryDao().getAllInventory()) { stores, _ ->
+            stores.map { Store(id = it.id, name = it.name, imageUri = it.imageUri) }
+        }
+    }
+
+    suspend fun addStore(name: String, imageUri: String? = null) {
+        val normalizedName = name.trim()
+        require(normalizedName.isNotBlank()) { "Store name is required" }
+        require(database.storeDao().getByName(normalizedName) == null) { "Store already exists" }
+
+        database.storeDao().insert(
+            com.foodlogger.data.db.StoreEntity(name = normalizedName, imageUri = imageUri)
+        )
+    }
+
+    suspend fun renameStore(storeId: Int, newName: String) {
+        val normalizedName = newName.trim()
+        require(normalizedName.isNotBlank()) { "Store name is required" }
+
+        val existing = database.storeDao().getById(storeId)
+            ?: throw IllegalArgumentException("Store not found")
+
+        val duplicate = database.storeDao().getByName(normalizedName)
+        require(duplicate == null || duplicate.id == storeId) { "Store already exists" }
+
+        if (existing.name != normalizedName) {
+            database.storeDao().update(existing.copy(name = normalizedName))
+        }
+    }
+
+    suspend fun updateStoreImage(storeId: Int, imageUri: String?) {
+        val existing = database.storeDao().getById(storeId)
+            ?: throw IllegalArgumentException("Store not found")
+        database.storeDao().update(existing.copy(imageUri = imageUri))
+    }
+
+    suspend fun deleteStore(storeId: Int) {
+        val existing = database.storeDao().getById(storeId)
+            ?: throw IllegalArgumentException("Store not found")
+
+        val usageCount = database.inventoryDao().countByBoughtFromStoreId(existing.id)
+        require(usageCount == 0) { "Store is used by inventory items. Reassign those items before deleting." }
+
+        database.storeDao().deleteById(storeId)
     }
 
     // RECIPE operations
@@ -246,7 +382,11 @@ class FoodLoggerRepository @Inject constructor(
         lastUpdated = lastUpdated
     )
 
-    private fun InventoryEntity.toInventoryItem(productName: String): InventoryItem {
+    private fun InventoryEntity.toInventoryItem(
+        productName: String,
+        storeName: String?,
+        storeImageUri: String?
+    ): InventoryItem {
         val now = LocalDateTime.now()
         val expiryStatus = when {
             expiryDate == null -> ExpiryStatus.GOOD
@@ -264,6 +404,9 @@ class FoodLoggerRepository @Inject constructor(
             dateBought = dateBought,
             expiryDate = expiryDate,
             storageLocation = storageLocation,
+            boughtFromStoreId = boughtFromStoreId,
+            boughtFromStoreName = storeName,
+            boughtFromStoreImageUri = storeImageUri,
             nameOverride = nameOverride,
             almostFinished = almostFinished,
             dateCreated = dateCreated,

@@ -32,13 +32,17 @@ class WishlistViewModel @Inject constructor(
     private fun loadAlmostFinishedItems() {
         viewModelScope.launch {
             _isLoading.value = true
+            var firstEmission = true
             try {
                 repository.getAlmostFinishedItems().collect { items ->
                     _almostFinishedItems.value = items
+                    if (firstEmission) {
+                        _isLoading.value = false
+                        firstEmission = false
+                    }
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Unknown error loading wishlist"
-            } finally {
                 _isLoading.value = false
             }
         }
@@ -52,6 +56,7 @@ class WishlistViewModel @Inject constructor(
                 quantity = item.quantity,
                 expiryDate = item.expiryDate,
                 storageLocation = item.storageLocation,
+                boughtFromStoreId = item.boughtFromStoreId,
                 nameOverride = item.nameOverride,
                 almostFinished = false
             )

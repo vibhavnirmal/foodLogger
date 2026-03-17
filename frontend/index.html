@@ -511,13 +511,15 @@
                 <h3 class="text-lg font-semibold text-gray-900">Scan Barcode</h3>
                 <button type="button" onclick="barcode.closeScanner()" class="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50">Close</button>
             </div>
-            <div id="barcode-scanner-preview" class="aspect-video w-full overflow-hidden rounded-lg bg-black"></div>
+            <div id="barcode-scanner-preview" class="aspect-video w-full overflow-hidden rounded-lg bg-black">
+                <video id="barcode-scanner-video" class="h-full w-full object-cover" autoplay muted playsinline></video>
+            </div>
             <p class="mt-2 text-xs text-gray-500">Point the camera at a barcode. Detection may take a few seconds.</p>
         </div>
     </div>
 
     <!-- Scripts -->
-    <script src="https://unpkg.com/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+    <script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
     <script src="/static/js/api.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/inventory.js"></script>

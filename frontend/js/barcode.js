@@ -1,13 +1,15 @@
 /**
  * Barcode Scanning + Product Lookup
- * Uses QuaggaJS for camera decoding and falls back to manual entry when needed.
+ * Uses ZXing for camera decoding and falls back to manual entry when needed.
  */
 
 const barcode = {
     isScanning: false,
-    detectedHandler: null,
     lastDetectedCode: null,
     lastDetectedAt: 0,
+    codeReader: null,
+    scanControls: null,
+    scanVideo: null,
 
     getVideoConstraints() {
         return {
@@ -22,11 +24,7 @@ const barcode = {
     },
 
     async enhanceActiveCameraTrack() {
-        if (typeof Quagga === 'undefined' || !Quagga.CameraAccess || !Quagga.CameraAccess.getActiveTrack) {
-            return;
-        }
-
-        const track = Quagga.CameraAccess.getActiveTrack();
+        const track = this.getActiveVideoTrack();
         if (!track || typeof track.getCapabilities !== 'function' || typeof track.applyConstraints !== 'function') {
             return;
         }
@@ -62,6 +60,43 @@ const barcode = {
         }
     },
 
+    getScannerVideo() {
+        if (!this.scanVideo) {
+            this.scanVideo = document.getElementById('barcode-scanner-video');
+        }
+
+        return this.scanVideo;
+    },
+
+    getActiveVideoTrack() {
+        const video = this.getScannerVideo();
+        const stream = video?.srcObject;
+        return stream?.getVideoTracks?.()[0] || null;
+    },
+
+    createCodeReader() {
+        if (this.codeReader) {
+            return this.codeReader;
+        }
+
+        if (typeof ZXingBrowser === 'undefined' || !ZXingBrowser.BrowserMultiFormatReader) {
+            return null;
+        }
+
+        this.codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+        return this.codeReader;
+    },
+
+    async chooseVideoDevice() {
+        const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+        if (!devices || devices.length === 0) {
+            throw new Error('No camera found');
+        }
+
+        const preferredDevice = devices.find((device) => /back|rear|environment/i.test(device.label || ''));
+        return preferredDevice?.deviceId || devices[0].deviceId;
+    },
+
     async onTabActive() {
         const manualBarcode = document.getElementById('manual-barcode');
         if (manualBarcode) {
@@ -76,7 +111,7 @@ const barcode = {
             this.showManualFallback('Camera access is unavailable. Use manual barcode entry below.');
             return;
         }
-        if (typeof Quagga === 'undefined') {
+        if (!this.createCodeReader()) {
             showNotification('Barcode scanner library failed to load', 'error');
             this.showManualFallback('Scanner library unavailable. Use manual barcode entry below.');
             return;
@@ -123,47 +158,23 @@ const barcode = {
             return;
         }
 
-        const target = document.getElementById('barcode-scanner-preview');
-        if (!target) {
-            throw new Error('Scanner preview container not found');
+        const video = this.getScannerVideo();
+        if (!video) {
+            throw new Error('Scanner preview video not found');
         }
-        target.innerHTML = '';
 
-        const config = {
-            inputStream: {
-                type: 'LiveStream',
-                target,
-                constraints: this.getVideoConstraints(),
-            },
-            locator: {
-                patchSize: 'medium',
-                halfSample: true,
-            },
-            decoder: {
-                readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader'],
-                multiple: false,
-            },
-            locate: true,
-            numOfWorkers: 2,
-            frequency: 10,
-        };
+        const codeReader = this.createCodeReader();
+        const selectedDeviceId = await this.chooseVideoDevice();
 
-        await new Promise((resolve, reject) => {
-            Quagga.init(config, (err) => {
-                if (err) {
-                    reject(err);
-                    return;
+        this.scanControls = await codeReader.decodeFromVideoDevice(selectedDeviceId, video, (result, error) => {
+            if (!result) {
+                if (error && error.name && error.name !== 'NotFoundException') {
+                    console.debug('ZXing scan error:', error);
                 }
-                Quagga.start();
-                resolve();
-            });
-        });
-
-        this.detectedHandler = (result) => {
-            const code = result?.codeResult?.code;
-            if (!code) {
                 return;
             }
+
+            const code = result.getText();
 
             if (!this.isLikelyBarcode(code)) {
                 return;
@@ -177,9 +188,8 @@ const barcode = {
             this.lastDetectedCode = code;
             this.lastDetectedAt = now;
             this.handleDetectedBarcode(code);
-        };
+        });
 
-        Quagga.onDetected(this.detectedHandler);
         await this.enhanceActiveCameraTrack();
         this.isScanning = true;
         document.body.classList.add('overflow-hidden');
@@ -218,17 +228,30 @@ const barcode = {
     },
 
     stopScanner() {
-        if (typeof Quagga !== 'undefined') {
-            if (this.detectedHandler) {
-                Quagga.offDetected(this.detectedHandler);
-                this.detectedHandler = null;
-            }
+        if (this.scanControls && typeof this.scanControls.stop === 'function') {
             try {
-                Quagga.stop();
+                this.scanControls.stop();
             } catch (error) {
                 // Ignore stop errors when scanner was never fully started.
             }
+            this.scanControls = null;
         }
+
+        if (this.codeReader && typeof this.codeReader.reset === 'function') {
+            try {
+                this.codeReader.reset();
+            } catch (error) {
+                // Ignore reset errors during teardown.
+            }
+        }
+
+        const video = this.getScannerVideo();
+        const stream = video?.srcObject;
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+            video.srcObject = null;
+        }
+
         this.isScanning = false;
     },
 

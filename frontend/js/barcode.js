@@ -11,16 +11,23 @@ const barcode = {
     scanControls: null,
     scanVideo: null,
 
-    getVideoConstraints() {
-        return {
+    getVideoConstraints(deviceId = null) {
+        const constraints = {
             facingMode: { ideal: 'environment' },
             width: { ideal: 1920 },
             height: { ideal: 1080 },
+            aspectRatio: { ideal: 1.7777777778 },
             advanced: [
                 { focusMode: 'continuous' },
                 { focusMode: 'single-shot' },
             ],
         };
+
+        if (deviceId) {
+            constraints.deviceId = { exact: deviceId };
+        }
+
+        return constraints;
     },
 
     async enhanceActiveCameraTrack() {
@@ -44,17 +51,23 @@ const barcode = {
             const min = Number.isFinite(capabilities.zoom.min) ? capabilities.zoom.min : 1;
             const max = Number.isFinite(capabilities.zoom.max) ? capabilities.zoom.max : min;
             if (max > min) {
-                const targetZoom = Math.min(max, Math.max(min, min + (max - min) * 0.25));
+                const targetZoom = Math.min(max, Math.max(min, min + (max - min) * 0.15));
                 advanced.push({ zoom: targetZoom });
             }
         }
+
+        const preferredConstraints = {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            advanced,
+        };
 
         if (advanced.length === 0) {
             return;
         }
 
         try {
-            await track.applyConstraints({ advanced });
+            await track.applyConstraints(preferredConstraints);
         } catch (error) {
             console.debug('Could not apply camera enhancement constraints:', error);
         }
@@ -166,7 +179,10 @@ const barcode = {
         const codeReader = this.createCodeReader();
         const selectedDeviceId = await this.chooseVideoDevice();
 
-        this.scanControls = await codeReader.decodeFromVideoDevice(selectedDeviceId, video, (result, error) => {
+        this.scanControls = await codeReader.decodeFromConstraints({
+            video: this.getVideoConstraints(selectedDeviceId),
+            audio: false,
+        }, video, (result, error) => {
             if (!result) {
                 if (error && error.name && error.name !== 'NotFoundException') {
                     console.debug('ZXing scan error:', error);

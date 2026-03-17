@@ -9,6 +9,59 @@ const barcode = {
     lastDetectedCode: null,
     lastDetectedAt: 0,
 
+    getVideoConstraints() {
+        return {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            advanced: [
+                { focusMode: 'continuous' },
+                { focusMode: 'single-shot' },
+            ],
+        };
+    },
+
+    async enhanceActiveCameraTrack() {
+        if (typeof Quagga === 'undefined' || !Quagga.CameraAccess || !Quagga.CameraAccess.getActiveTrack) {
+            return;
+        }
+
+        const track = Quagga.CameraAccess.getActiveTrack();
+        if (!track || typeof track.getCapabilities !== 'function' || typeof track.applyConstraints !== 'function') {
+            return;
+        }
+
+        const capabilities = track.getCapabilities();
+        const advanced = [];
+
+        if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.length > 0) {
+            if (capabilities.focusMode.includes('continuous')) {
+                advanced.push({ focusMode: 'continuous' });
+            } else if (capabilities.focusMode.includes('single-shot')) {
+                advanced.push({ focusMode: 'single-shot' });
+            }
+        }
+
+        if (typeof capabilities.zoom === 'object') {
+            const min = Number.isFinite(capabilities.zoom.min) ? capabilities.zoom.min : 1;
+            const max = Number.isFinite(capabilities.zoom.max) ? capabilities.zoom.max : min;
+            if (max > min) {
+                const targetZoom = Math.min(max, Math.max(min, min + (max - min) * 0.25));
+                advanced.push({ zoom: targetZoom });
+            }
+        }
+
+        if (advanced.length === 0) {
+            return;
+        }
+
+        try {
+            await track.applyConstraints({ advanced });
+        } catch (error) {
+            console.debug('Could not apply camera enhancement constraints:', error);
+        }
+    },
+
     async onTabActive() {
         const manualBarcode = document.getElementById('manual-barcode');
         if (manualBarcode) {
@@ -36,7 +89,7 @@ const barcode = {
 
         try {
             // Request camera permission explicitly first
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: this.getVideoConstraints() });
             // Stop the stream immediately—we just wanted to check permission
             stream.getTracks().forEach(track => track.stop());
             
@@ -80,9 +133,7 @@ const barcode = {
             inputStream: {
                 type: 'LiveStream',
                 target,
-                constraints: {
-                    facingMode: 'environment',
-                },
+                constraints: this.getVideoConstraints(),
             },
             decoder: {
                 readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
@@ -119,6 +170,7 @@ const barcode = {
         };
 
         Quagga.onDetected(this.detectedHandler);
+        await this.enhanceActiveCameraTrack();
         this.isScanning = true;
         document.body.classList.add('overflow-hidden');
     },

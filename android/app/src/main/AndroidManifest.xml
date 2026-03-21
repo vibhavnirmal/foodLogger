@@ -24,6 +24,47 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.xml.AddInventoryActivity"
+            android:exported="false"
+            android:label="@string/action_add_item"
+            android:theme="@style/Theme.FoodLogger" />
+
+        <activity
+            android:name=".ui.xml.EditInventoryActivity"
+            android:exported="false"
+            android:label="@string/action_edit"
+            android:theme="@style/Theme.FoodLogger" />
+
+        <activity
+            android:name=".ui.xml.ReceiptCaptureActivity"
+            android:exported="false"
+            android:label="@string/action_scan_receipt"
+            android:theme="@style/Theme.FoodLogger"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.xml.ReceiptReviewActivity"
+            android:exported="false"
+            android:label="Review Receipt"
+            android:theme="@style/Theme.FoodLogger" />
+
+        <activity
+            android:name=".ui.xml.ReceiptDetailActivity"
+            android:exported="false"
+            android:label="Receipt Details"
+            android:theme="@style/Theme.FoodLogger" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

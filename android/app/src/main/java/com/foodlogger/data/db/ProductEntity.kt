@@ -1,13 +1,18 @@
 package com.foodlogger.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 
-@Entity(tableName = "products")
+@Entity(
+    tableName = "products",
+    indices = [Index(value = ["barcode"], unique = true)]
+)
 data class ProductEntity(
-    @PrimaryKey
-    val barcode: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+    val barcode: String?,
     val name: String,
     val brand: String?,
     val category: String?,

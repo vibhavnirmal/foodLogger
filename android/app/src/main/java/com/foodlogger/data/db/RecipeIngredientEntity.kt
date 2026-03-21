@@ -16,21 +16,21 @@ import androidx.room.PrimaryKey
         ),
         ForeignKey(
             entity = ProductEntity::class,
-            parentColumns = ["barcode"],
-            childColumns = ["barcode"],
+            parentColumns = ["id"],
+            childColumns = ["productId"],
             onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [
         Index(value = ["recipeId"]),
-        Index(value = ["barcode"])
+        Index(value = ["productId"])
     ]
 )
 data class RecipeIngredientEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val recipeId: Int,
-    val barcode: String,
+    val productId: Int,
     val quantity: Float = 1.0f,
     val unit: String = "unit",
 )

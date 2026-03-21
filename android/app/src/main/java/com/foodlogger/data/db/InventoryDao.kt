@@ -63,4 +63,13 @@ interface InventoryDao {
 
     @Query("DELETE FROM inventory WHERE id = :id")
     suspend fun deleteInventoryById(id: Int)
+
+    @Query("SELECT * FROM inventory WHERE productId = :productId ORDER BY expiryDate ASC")
+    suspend fun getInventoryByProductId(productId: Int): List<InventoryEntity>
+
+    @Query("SELECT * FROM inventory WHERE receiptId = :receiptId")
+    suspend fun getInventoryByReceiptId(receiptId: Int): List<InventoryEntity>
+
+    @Query("SELECT * FROM inventory WHERE receiptId = :receiptId")
+    fun getInventoryByReceiptIdFlow(receiptId: Int): Flow<List<InventoryEntity>>
 }

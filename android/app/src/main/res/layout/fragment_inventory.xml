@@ -4,73 +4,69 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:background="?attr/android:colorBackground">
 
+    <!-- Header with Sort -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp">
 
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginEnd="8dp">
-            <AutoCompleteTextView
-                android:id="@+id/sortDropdown"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clickable="true"
-                android:cursorVisible="false"
-                android:ellipsize="end"
-                android:focusable="false"
-                android:hint="Sort"
-                android:inputType="none"
-                android:maxLines="1"
-                android:singleLine="true"
-                android:textSize="14sp" />
-        </com.google.android.material.textfield.TextInputLayout>
+            android:text="Search Placeholder for now"
+            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+            android:textColor="?attr/colorOnSurface" />
 
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp">
-            <AutoCompleteTextView
-                android:id="@+id/statusDropdown"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clickable="true"
-                android:cursorVisible="false"
-                android:ellipsize="end"
-                android:focusable="false"
-                android:hint="Status"
-                android:inputType="none"
-                android:maxLines="1"
-                android:singleLine="true"
-                android:textSize="14sp" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/addButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:contentDescription="@string/action_add_item"
-            app:fabSize="mini"
-            app:srcCompat="@android:drawable/ic_input_add" />
+        <ImageButton
+            android:id="@+id/sortButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:contentDescription="Sort by expiry"
+            app:tint="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
 
-    <LinearLayout android:id="@+id/errorGroup" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:paddingTop="12dp">
-        <TextView android:id="@+id/errorText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@android:color/holo_red_dark" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/retryButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/action_retry" />
-    </LinearLayout>
+    <!-- Loading State -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="48dp"
+        android:visibility="gone" />
 
-    <ProgressBar android:id="@+id/progressBar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="16dp" android:visibility="gone" />
-    <TextView android:id="@+id/emptyText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="24dp" android:text="@string/empty_inventory" android:visibility="gone" />
+    <!-- Empty State -->
+    <include
+        android:id="@+id/emptyState"
+        layout="@layout/layout_empty_state"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
 
-    <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="12dp" />
+    <!-- Error State -->
+    <include
+        android:id="@+id/errorState"
+        layout="@layout/layout_error_state"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
+
+    <!-- RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingHorizontal="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="88dp"
+        android:layoutAnimation="@anim/layout_animation_fall_down" />
+
 </LinearLayout>

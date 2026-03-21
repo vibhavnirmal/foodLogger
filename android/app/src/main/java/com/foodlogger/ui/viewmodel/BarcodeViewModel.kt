@@ -158,14 +158,20 @@ class BarcodeViewModel @Inject constructor(
     }
 
     suspend fun addScannedItemToInventory() {
-        val barcode = _scannedBarcode.value ?: run {
+        if (_scannedBarcode.value == null) {
             _errorMessage.value = "No barcode scanned"
+            return
+        }
+
+        val product = _product.value
+        if (product == null) {
+            _errorMessage.value = "No product found. Add manually first."
             return
         }
 
         try {
             repository.addInventoryItem(
-                barcode = barcode,
+                productId = product.id,
                 quantity = _quantity.value,
                 unit = "unit",
                 dateBought = _dateBought.value ?: LocalDateTime.now(),
@@ -233,7 +239,17 @@ class BarcodeViewModel @Inject constructor(
                     fat = null
                 )
             )
-            _product.value = Product(barcode, name, brand, null, null, null, null, null, null)
+            _product.value = Product(
+                barcode = barcode,
+                name = name,
+                brand = brand,
+                category = null,
+                servingSize = null,
+                kcal = null,
+                protein = null,
+                carbs = null,
+                fat = null
+            )
             _errorMessage.value = null
         } catch (e: Exception) {
             _errorMessage.value = e.message ?: "Error adding product"

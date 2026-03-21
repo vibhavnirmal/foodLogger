@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecipeEntity::class,
         RecipeIngredientEntity::class,
         StorageLocationEntity::class,
-        StoreEntity::class
+        StoreEntity::class,
+        ReceiptEntity::class
     ],
-    version = 3,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(LocalDateTimeConverter::class)
@@ -28,6 +29,7 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
     abstract fun recipeIngredientDao(): RecipeIngredientDao
     abstract fun storageLocationDao(): StorageLocationDao
     abstract fun storeDao(): StoreDao
+    abstract fun receiptDao(): ReceiptDao
 
     companion object {
         private val DEFAULT_STORAGE_LOCATIONS = listOf("Fridge", "Freezer", "Pantry", "Kitchen Shelf")
@@ -104,6 +106,102 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("PRAGMA foreign_keys = OFF")
+                db.execSQL("PRAGMA legacy_alter_table = ON")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS products_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        barcode TEXT,
+                        name TEXT NOT NULL,
+                        brand TEXT,
+                        category TEXT,
+                        servingSize TEXT,
+                        kcal REAL,
+                        protein REAL,
+                        carbs REAL,
+                        fat REAL,
+                        createdAt TEXT NOT NULL,
+                        lastUpdated TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    INSERT INTO products_new (barcode, name, brand, category, servingSize, kcal, protein, carbs, fat, createdAt, lastUpdated)
+                    SELECT barcode, name, brand, category, servingSize, kcal, protein, carbs, fat, createdAt, lastUpdated FROM products
+                    """.trimIndent()
+                )
+
+                db.execSQL("DROP TABLE products")
+                db.execSQL("ALTER TABLE products_new RENAME TO products")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_products_barcode ON products(barcode)")
+
+                db.execSQL("ALTER TABLE inventory ADD COLUMN productId INTEGER")
+
+                db.execSQL(
+                    """
+                    UPDATE inventory SET productId = (
+                        SELECT p.id FROM products p WHERE p.barcode = inventory.barcode LIMIT 1
+                    )
+                    """.trimIndent()
+                )
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_productId ON inventory(productId)")
+                db.execSQL("ALTER TABLE recipe_ingredients ADD COLUMN productId INTEGER")
+
+                db.execSQL(
+                    """
+                    UPDATE recipe_ingredients SET productId = (
+                        SELECT p.id FROM products p WHERE p.barcode = recipe_ingredients.barcode LIMIT 1
+                    )
+                    """.trimIndent()
+                )
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_ingredients_productId ON recipe_ingredients(productId)")
+                db.execSQL("PRAGMA foreign_keys = ON")
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS receipts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        imagePath TEXT NOT NULL,
+                        storeName TEXT,
+                        totalAmount REAL,
+                        dateScanned TEXT NOT NULL
+                    )
+                """.trimIndent())
+
+                db.execSQL("ALTER TABLE inventory ADD COLUMN receiptId INTEGER")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_receiptId ON inventory(receiptId)")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val cursor = db.query("PRAGMA table_info(receipts)")
+                val existingColumns = mutableSetOf<String>()
+                while (cursor.moveToNext()) {
+                    existingColumns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+                }
+                cursor.close()
+                
+                if (!existingColumns.contains("dateShopped")) {
+                    db.execSQL("ALTER TABLE receipts ADD COLUMN dateShopped TEXT")
+                }
+                if (!existingColumns.contains("storeId")) {
+                    db.execSQL("ALTER TABLE receipts ADD COLUMN storeId INTEGER")
+                }
+            }
+        }
+
         @Volatile
         private var INSTANCE: FoodLoggerDatabase? = null
 
@@ -117,11 +215,17 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
                     .addCallback(object : RoomDatabase.Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
+                            db.execSQL("PRAGMA foreign_keys = ON")
                             seedDefaultStorageLocations(db)
                             seedDefaultStores(db)
                         }
+
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            db.execSQL("PRAGMA foreign_keys = ON")
+                        }
                     })
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                 INSTANCE = instance
                 instance

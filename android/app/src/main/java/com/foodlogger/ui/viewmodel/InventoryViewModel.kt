@@ -2,8 +2,8 @@ package com.foodlogger.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.foodlogger.data.db.ReceiptEntity
 import com.foodlogger.data.repository.FoodLoggerRepository
-import com.foodlogger.domain.model.ExpiryStatus
 import com.foodlogger.domain.model.InventoryItem
 import com.foodlogger.domain.model.Product
 import com.foodlogger.domain.model.Store
@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -23,9 +24,6 @@ class InventoryViewModel @Inject constructor(
     private val _inventoryItems = MutableStateFlow<List<InventoryItem>>(emptyList())
     val inventoryItems: StateFlow<List<InventoryItem>> = _inventoryItems.asStateFlow()
 
-    private val _filteredItems = MutableStateFlow<List<InventoryItem>>(emptyList())
-    val filteredItems: StateFlow<List<InventoryItem>> = _filteredItems.asStateFlow()
-
     private val _availableProducts = MutableStateFlow<List<Product>>(emptyList())
     val availableProducts: StateFlow<List<Product>> = _availableProducts.asStateFlow()
 
@@ -35,24 +33,11 @@ class InventoryViewModel @Inject constructor(
     private val _availableStores = MutableStateFlow<List<Store>>(emptyList())
     val availableStores: StateFlow<List<Store>> = _availableStores.asStateFlow()
 
-    private val _sortBy = MutableStateFlow<SortOption>(SortOption.EXPIRY_STATUS)
-    val sortBy: StateFlow<SortOption> = _sortBy.asStateFlow()
-
-    private val _filterByStatus = MutableStateFlow<ExpiryStatus?>(null)
-    val filterByStatus: StateFlow<ExpiryStatus?> = _filterByStatus.asStateFlow()
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-
-    enum class SortOption {
-        EXPIRY_STATUS,
-        ALPHABETICAL,
-        DATE_BOUGHT,
-        ALMOST_FINISHED
-    }
 
     init {
         loadInventory()
@@ -76,19 +61,19 @@ class InventoryViewModel @Inject constructor(
     private fun loadInventory() {
         viewModelScope.launch {
             _isLoading.value = true
-            var firstEmission = true
             try {
-                repository.getAllInventory().collect { items ->
+                repository.getAllInventory().take(1).collect { items ->
                     _inventoryItems.value = items
-                    applyFilterAndSort()
-                    if (firstEmission) {
-                        _isLoading.value = false
-                        firstEmission = false
-                    }
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Unknown error loading inventory"
+            } finally {
                 _isLoading.value = false
+            }
+        }
+        viewModelScope.launch {
+            repository.getAllInventory().collect { items ->
+                _inventoryItems.value = items
             }
         }
     }
@@ -117,46 +102,10 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
-    fun setSortOption(option: SortOption) {
-        _sortBy.value = option
-        applyFilterAndSort()
-    }
-
-    fun setStatusFilter(status: ExpiryStatus?) {
-        _filterByStatus.value = status
-        applyFilterAndSort()
-    }
-
-    private fun applyFilterAndSort() {
-        var filtered = _inventoryItems.value
-        
-        // Apply filter
-        _filterByStatus.value?.let { status ->
-            filtered = filtered.filter { it.expiryStatus == status }
-        }
-
-        // Apply sort
-        filtered = when (_sortBy.value) {
-            SortOption.EXPIRY_STATUS -> filtered.sortedWith(
-                compareBy<InventoryItem> { it.expiryStatus.ordinal }
-                    .thenBy { it.expiryDate }
-            )
-            SortOption.ALPHABETICAL -> filtered.sortedBy { it.displayName() }
-            SortOption.DATE_BOUGHT -> filtered.sortedByDescending { it.dateBought }
-            SortOption.ALMOST_FINISHED -> {
-                filtered.sortedWith(
-                    compareBy<InventoryItem> { !it.almostFinished }
-                        .thenBy { it.expiryStatus.ordinal }
-                )
-            }
-        }
-
-        _filteredItems.value = filtered
-    }
-
     suspend fun updateInventoryItem(
         id: Int,
         quantity: Float,
+        unit: String,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
@@ -167,6 +116,7 @@ class InventoryViewModel @Inject constructor(
             repository.updateInventoryItem(
                 id = id,
                 quantity = quantity,
+                unit = unit,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
@@ -187,7 +137,7 @@ class InventoryViewModel @Inject constructor(
     }
 
     suspend fun addInventoryItem(
-        barcode: String,
+        productId: Int,
         quantity: Float,
         unit: String,
         expiryDate: LocalDateTime?,
@@ -195,17 +145,19 @@ class InventoryViewModel @Inject constructor(
         storageLocation: String? = null,
         boughtFromStoreId: Int? = null,
         nameOverride: String? = null,
+        imageUri: String? = null
     ) {
         try {
             repository.addInventoryItem(
-                barcode = barcode,
+                productId = productId,
                 quantity = quantity,
                 unit = unit,
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
-                nameOverride = nameOverride
+                nameOverride = nameOverride,
+                imageUri = imageUri
             )
         } catch (e: Exception) {
             _errorMessage.value = e.message ?: "Error adding item"
@@ -214,15 +166,6 @@ class InventoryViewModel @Inject constructor(
 
     fun clearError() {
         _errorMessage.value = null
-    }
-
-    // Public convenience methods for UI (non-suspend wrappers)
-    fun sortItemsBy(option: SortOption) {
-        setSortOption(option)
-    }
-
-    fun filterByStatus(status: ExpiryStatus?) {
-        setStatusFilter(status)
     }
 
     fun deleteItem(id: Int) {
@@ -235,9 +178,13 @@ class InventoryViewModel @Inject constructor(
         loadInventory()
     }
 
+    fun forceRefresh() {
+    }
+
     fun saveInventoryItem(
         item: InventoryItem,
         quantity: Float,
+        unit: String,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
@@ -248,6 +195,7 @@ class InventoryViewModel @Inject constructor(
             updateInventoryItem(
                 id = item.id,
                 quantity = quantity,
+                unit = unit,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
@@ -258,26 +206,62 @@ class InventoryViewModel @Inject constructor(
     }
 
     fun createInventoryItem(
-        barcode: String,
+        productId: Int,
         quantity: Float,
         unit: String,
         expiryDate: LocalDateTime?,
         dateBought: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
-        nameOverride: String?
+        nameOverride: String?,
+        imageUri: String? = null
     ) {
         viewModelScope.launch {
             addInventoryItem(
-                barcode = barcode,
+                productId = productId,
                 quantity = quantity,
                 unit = unit,
                 expiryDate = expiryDate,
                 dateBought = dateBought,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
-                nameOverride = nameOverride
+                nameOverride = nameOverride,
+                imageUri = imageUri
             )
         }
+    }
+
+    fun createInventoryItemWithProduct(
+        product: Product,
+        quantity: Float,
+        unit: String,
+        expiryDate: LocalDateTime?,
+        dateBought: LocalDateTime?,
+        storageLocation: String?,
+        boughtFromStoreId: Int?,
+        nameOverride: String?,
+        imageUri: String?
+    ) {
+        viewModelScope.launch {
+            try {
+                repository.addProductWithInventory(
+                    product = product,
+                    quantity = quantity,
+                    unit = unit,
+                    dateBought = dateBought,
+                    expiryDate = expiryDate,
+                    storageLocation = storageLocation,
+                    boughtFromStoreId = boughtFromStoreId,
+                    nameOverride = nameOverride,
+                    imageUri = imageUri
+                )
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error adding item"
+            }
+        }
+    }
+
+    suspend fun getReceiptById(id: Int): ReceiptEntity? {
+        return repository.getReceiptById(id)
     }
 }

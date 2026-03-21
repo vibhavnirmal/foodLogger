@@ -54,6 +54,7 @@ class WishlistViewModel @Inject constructor(
             repository.updateInventoryItem(
                 id = id,
                 quantity = item.quantity,
+                unit = item.unit,
                 expiryDate = item.expiryDate,
                 storageLocation = item.storageLocation,
                 boughtFromStoreId = item.boughtFromStoreId,

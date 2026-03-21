@@ -8,30 +8,26 @@ import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.widget.ViewPager2
+import androidx.fragment.app.commit
 import com.foodlogger.databinding.ActivityMainBinding
 import com.foodlogger.ui.navigation.Screen
-import com.foodlogger.ui.xml.BarcodeFragment
+import com.foodlogger.ui.xml.AddBottomSheet
+import com.foodlogger.ui.xml.HomeFragment
 import com.foodlogger.ui.xml.InventoryFragment
 import com.foodlogger.ui.xml.ProductFragment
+import com.foodlogger.ui.xml.ReceiptCaptureActivity
 import com.foodlogger.ui.xml.RecipeFragment
+import com.foodlogger.ui.xml.ReceiptsFragment
 import com.foodlogger.ui.xml.SettingsFragment
-import com.foodlogger.ui.xml.WishlistFragment
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private var currentScreen: Screen = Screen.INVENTORY
-    private var lastMainScreen: Screen = Screen.INVENTORY
-    private val mainScreens = listOf(
-        Screen.INVENTORY,
-        Screen.WISHLIST,
-        Screen.RECIPES,
-        Screen.BARCODE,
-        Screen.PRODUCTS,
-    )
+    private var currentScreen: Screen = Screen.HOME
+    private var previousScreen: Screen = Screen.HOME
+    private var isInProducts: Boolean = false
+    private var isNavigating: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,47 +35,37 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.topAppBar)
 
-        binding.mainPager.adapter = MainPagerAdapter()
-        binding.mainPager.offscreenPageLimit = 1
-        binding.mainPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-            override fun onPageSelected(position: Int) {
-                val selectedScreen = mainScreens[position]
-                currentScreen = selectedScreen
-                lastMainScreen = selectedScreen
-                binding.topAppBar.title = getString(titleFor(selectedScreen))
-                val menuId = menuIdFor(selectedScreen)
-                if (binding.bottomNavigation.selectedItemId != menuId) {
-                    binding.bottomNavigation.selectedItemId = menuId
-                }
-                invalidateOptionsMenu()
-            }
-        })
-
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
-            val screen = when (item.itemId) {
-                R.id.menu_inventory -> Screen.INVENTORY
-                R.id.menu_wishlist -> Screen.WISHLIST
-                R.id.menu_recipes -> Screen.RECIPES
-                R.id.menu_barcode -> Screen.BARCODE
-                R.id.menu_products -> Screen.PRODUCTS
-                else -> return@setOnItemSelectedListener false
-            }
-            showMainScreen(screen)
-            true
-        }
+        setupBottomNavigation()
 
         if (savedInstanceState == null) {
-            binding.bottomNavigation.selectedItemId = R.id.menu_inventory
-        }
-
-        onBackPressedDispatcher.addCallback(this) {
-            if (currentScreen == Screen.SETTINGS) {
-                navigateToMainScreen(lastMainScreen)
+            val navigateTo = intent.getStringExtra("navigate_to")
+            if (navigateTo == "inventory") {
+                showScreen(Screen.INVENTORY, fromNav = false)
+                binding.bottomNavigation.selectedItemId = R.id.menu_inventory
             } else {
-                isEnabled = false
-                onBackPressedDispatcher.onBackPressed()
+                showScreen(Screen.HOME, fromNav = false)
             }
         }
+    }
+
+    private fun setupBottomNavigation() {
+        binding.bottomNavigation.setOnItemSelectedListener { item ->
+            if (isNavigating) return@setOnItemSelectedListener true
+            
+            when (item.itemId) {
+                R.id.menu_home -> showScreen(Screen.HOME, fromNav = true)
+                R.id.menu_inventory -> showScreen(Screen.INVENTORY, fromNav = true)
+                R.id.menu_add -> showAddBottomSheet()
+                R.id.menu_recipes -> showScreen(Screen.RECIPES, fromNav = true)
+                R.id.menu_history -> showScreen(Screen.HISTORY, fromNav = true)
+            }
+            true
+        }
+    }
+
+    private fun showAddBottomSheet() {
+        val bottomSheet = AddBottomSheet()
+        bottomSheet.show(supportFragmentManager, AddBottomSheet.TAG)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -94,93 +80,125 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.menu_settings) {
-            showScreen(Screen.SETTINGS)
+            showScreen(Screen.SETTINGS, fromNav = false)
             return true
         }
         return super.onOptionsItemSelected(item)
     }
 
-    private fun navigateToMainScreen(screen: Screen) {
-        val target = if (screen == Screen.SETTINGS) Screen.INVENTORY else screen
-        val menuId = menuIdFor(target)
-        binding.bottomNavigation.selectedItemId = menuId
-    }
-
-    private fun showScreen(screen: Screen) {
+    fun showScreen(screen: Screen, fromNav: Boolean = false) {
+        isNavigating = true
+        isInProducts = false
+        
         if (screen == Screen.SETTINGS) {
+            previousScreen = currentScreen
             currentScreen = Screen.SETTINGS
             binding.topAppBar.title = getString(R.string.title_settings)
-            binding.mainPager.visibility = View.GONE
+            binding.fragmentContainer.visibility = View.GONE
             binding.settingsContainer.visibility = View.VISIBLE
             binding.bottomNavigation.visibility = View.GONE
             binding.topAppBar.navigationIcon = ContextCompat.getDrawable(this, R.drawable.ic_arrow_back)
-            binding.topAppBar.setNavigationOnClickListener {
-                navigateToMainScreen(lastMainScreen)
-            }
-            val existing = supportFragmentManager.findFragmentByTag(Screen.SETTINGS.name)
-            if (existing == null) {
-                supportFragmentManager
-                    .beginTransaction()
-                    .replace(R.id.settings_container, SettingsFragment(), Screen.SETTINGS.name)
-                    .commit()
+            binding.topAppBar.setNavigationOnClickListener { goBack() }
+            
+            if (supportFragmentManager.findFragmentByTag("SETTINGS") == null) {
+                supportFragmentManager.commit {
+                    replace(R.id.settings_container, SettingsFragment(), "SETTINGS")
+                }
             }
             invalidateOptionsMenu()
+            isNavigating = false
             return
         }
 
-        showMainScreen(screen)
-    }
-
-    private fun showMainScreen(screen: Screen) {
-        val safeScreen = if (screen == Screen.SETTINGS) Screen.INVENTORY else screen
-        val targetIndex = mainScreens.indexOf(safeScreen)
-        if (targetIndex == -1) return
-
-        binding.mainPager.visibility = View.VISIBLE
+        currentScreen = screen
+        binding.fragmentContainer.visibility = View.VISIBLE
         binding.settingsContainer.visibility = View.GONE
         binding.bottomNavigation.visibility = View.VISIBLE
         binding.topAppBar.navigationIcon = null
         binding.topAppBar.setNavigationOnClickListener(null)
 
-        if (binding.mainPager.currentItem != targetIndex) {
-            binding.mainPager.setCurrentItem(targetIndex, false)
+        binding.topAppBar.title = getString(titleFor(screen))
+
+        val fragmentTag = screen.name
+        val existingFragment = supportFragmentManager.findFragmentByTag(fragmentTag)
+        
+        if (existingFragment == null) {
+            supportFragmentManager.commit {
+                replace(R.id.fragmentContainer, createFragmentFor(screen), fragmentTag)
+            }
         }
-        currentScreen = safeScreen
-        lastMainScreen = safeScreen
-        binding.topAppBar.title = getString(titleFor(safeScreen))
+
+        updateBottomNavSelection(screen)
+
         invalidateOptionsMenu()
+        isNavigating = false
+    }
+
+    private fun goBack() {
+        showScreen(previousScreen, fromNav = false)
+    }
+
+    private fun updateBottomNavSelection(screen: Screen) {
+        val menuItemId = when (screen) {
+            Screen.HOME -> R.id.menu_home
+            Screen.INVENTORY -> R.id.menu_inventory
+            Screen.RECIPES -> R.id.menu_recipes
+            Screen.HISTORY -> R.id.menu_history
+            else -> return
+        }
+        binding.bottomNavigation.selectedItemId = menuItemId
+    }
+
+    private fun createFragmentFor(screen: Screen): Fragment {
+        return when (screen) {
+            Screen.HOME -> HomeFragment()
+            Screen.INVENTORY -> InventoryFragment()
+            Screen.PRODUCTS -> ProductFragment()
+            Screen.RECIPES -> RecipeFragment()
+            Screen.HISTORY -> ReceiptsFragment()
+            Screen.SETTINGS -> HomeFragment()
+        }
     }
 
     private fun titleFor(screen: Screen): Int = when (screen) {
+        Screen.HOME -> R.string.title_home
         Screen.INVENTORY -> R.string.title_inventory
-        Screen.WISHLIST -> R.string.title_wishlist
-        Screen.RECIPES -> R.string.title_recipes
-        Screen.BARCODE -> R.string.title_barcode
         Screen.PRODUCTS -> R.string.title_products
+        Screen.RECIPES -> R.string.title_recipes
+        Screen.HISTORY -> R.string.title_history
         Screen.SETTINGS -> R.string.title_settings
     }
 
-    private fun menuIdFor(screen: Screen): Int = when (screen) {
-        Screen.INVENTORY -> R.id.menu_inventory
-        Screen.WISHLIST -> R.id.menu_wishlist
-        Screen.RECIPES -> R.id.menu_recipes
-        Screen.BARCODE -> R.id.menu_barcode
-        Screen.PRODUCTS -> R.id.menu_products
-        Screen.SETTINGS -> R.id.menu_inventory
-    }
-
-    private inner class MainPagerAdapter : FragmentStateAdapter(this) {
-        override fun getItemCount(): Int = mainScreens.size
-
-        override fun createFragment(position: Int): Fragment {
-            return when (mainScreens[position]) {
-                Screen.INVENTORY -> InventoryFragment()
-                Screen.WISHLIST -> WishlistFragment()
-                Screen.RECIPES -> RecipeFragment()
-                Screen.BARCODE -> BarcodeFragment()
-                Screen.PRODUCTS -> ProductFragment()
-                Screen.SETTINGS -> InventoryFragment()
+    fun navigateToProducts() {
+        isNavigating = true
+        currentScreen = Screen.PRODUCTS
+        binding.topAppBar.title = getString(R.string.title_products)
+        binding.topAppBar.navigationIcon = null
+        binding.topAppBar.setNavigationOnClickListener(null)
+        binding.bottomNavigation.visibility = View.VISIBLE
+        binding.fragmentContainer.visibility = View.VISIBLE
+        binding.settingsContainer.visibility = View.GONE
+        
+        if (supportFragmentManager.findFragmentByTag("PRODUCTS") == null) {
+            supportFragmentManager.commit {
+                replace(R.id.fragmentContainer, ProductFragment(), "PRODUCTS")
             }
         }
+        invalidateOptionsMenu()
+        isNavigating = false
+    }
+
+    fun navigateToInventory() {
+        isNavigating = true
+        isInProducts = false
+        showScreen(Screen.INVENTORY, fromNav = false)
+    }
+
+    fun navigateToReceiptScan() {
+        startActivity(android.content.Intent(this, ReceiptCaptureActivity::class.java))
+    }
+
+    private fun navigateBackFromSubScreen() {
+        showScreen(Screen.HOME, fromNav = false)
     }
 }

@@ -1,29 +1,29 @@
 package com.foodlogger.ui.xml
 
+import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.widget.ArrayAdapter
-import androidx.core.widget.doAfterTextChanged
+import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.foodlogger.R
-import com.foodlogger.databinding.DialogInventoryEditBinding
-import com.foodlogger.databinding.DialogInventoryEntryBinding
 import com.foodlogger.databinding.FragmentInventoryBinding
 import com.foodlogger.domain.model.ExpiryStatus
 import com.foodlogger.domain.model.InventoryItem
-import com.foodlogger.domain.model.Product
-import com.foodlogger.domain.model.Store
 import com.foodlogger.ui.viewmodel.InventoryViewModel
 import com.foodlogger.ui.xml.adapter.InventoryAdapter
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 @AndroidEntryPoint
 class InventoryFragment : Fragment(R.layout.fragment_inventory) {
@@ -31,9 +31,8 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
     private val binding get() = _binding!!
     private val viewModel: InventoryViewModel by viewModels()
     private lateinit var adapter: InventoryAdapter
-    private var availableProducts: List<Product> = emptyList()
-    private var availableStorageLocations: List<String> = emptyList()
-    private var availableStores: List<Store> = emptyList()
+    
+    private var isSortedByExpiry = false
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -42,180 +41,229 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
         adapter = InventoryAdapter(
             onClick = ::showEditDialog,
             onDelete = { item -> viewModel.deleteItem(item.id) },
+            onReceiptClick = ::showReceiptImage,
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
 
-        setupFilters()
-        binding.addButton.setOnClickListener { showCreateDialog() }
-        binding.retryButton.setOnClickListener { viewModel.reloadInventory() }
+        setupSwipeActions()
+        setupSortButton()
+        binding.errorState.retryButton.setOnClickListener { viewModel.reloadInventory() }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.filteredItems.collect { items ->
-                        adapter.submitList(items)
-                        binding.recyclerView.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
-                        binding.emptyText.visibility = if (items.isEmpty() && !binding.progressBar.isShown && binding.errorGroup.visibility != View.VISIBLE) View.VISIBLE else View.GONE
-                    }
-                }
-                launch {
-                    viewModel.availableProducts.collect { products ->
-                        availableProducts = products
-                    }
-                }
-                launch {
-                    viewModel.availableStorageLocations.collect { locations ->
-                        availableStorageLocations = locations
-                    }
-                }
-                launch {
-                    viewModel.availableStores.collect { stores ->
-                        availableStores = stores
+                    viewModel.inventoryItems.collect { items ->
+                        val sortedItems = if (isSortedByExpiry) {
+                            items.sortedWith(compareBy<InventoryItem> { item ->
+                                when {
+                                    item.expiryDate == null -> Long.MAX_VALUE
+                                    item.expiryStatus == ExpiryStatus.EXPIRED -> 0
+                                    item.expiryStatus == ExpiryStatus.EXPIRING_SOON -> 1
+                                    else -> 2
+                                }
+                            }.thenBy { it.expiryDate ?: java.time.LocalDateTime.MAX })
+                        } else {
+                            items
+                        }
+                        adapter.submitList(sortedItems)
+                        updateUiState(sortedItems.isEmpty())
                     }
                 }
                 launch {
                     viewModel.isLoading.collect { isLoading ->
-                        binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+                        updateLoadingState(isLoading)
                     }
                 }
                 launch {
                     viewModel.errorMessage.collect { error ->
-                        binding.errorGroup.visibility = if (error != null) View.VISIBLE else View.GONE
-                        binding.errorText.text = error?.let { getString(R.string.error_prefix, it) }
+                        updateErrorState(error)
                     }
                 }
             }
         }
+        viewModel.forceRefresh()
     }
 
-    private fun setupFilters() {
-        val sortOptions = InventoryViewModel.SortOption.entries
-        val sortLabels = listOf("Expiry", "A-Z", "Bought", "Low stock")
-        binding.sortDropdown.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, sortLabels))
-        binding.sortDropdown.setText(sortLabels.first(), false)
-        binding.sortDropdown.setOnItemClickListener { _, _, position, _ ->
-            viewModel.sortItemsBy(sortOptions[position])
-        }
-
-        val statusLabels = listOf("All", "Good", "Soon", "Expired")
-        binding.statusDropdown.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, statusLabels))
-        binding.statusDropdown.setText(statusLabels.first(), false)
-        binding.statusDropdown.setOnItemClickListener { _, _, position, _ ->
-            viewModel.filterByStatus(ExpiryStatus.entries.getOrNull(position - 1))
+    private fun setupSortButton() {
+        binding.sortButton.setOnClickListener {
+            isSortedByExpiry = !isSortedByExpiry
+            viewModel.forceRefresh()
+            Toast.makeText(
+                context,
+                if (isSortedByExpiry) "Sorted by expiry" else "Sort removed",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
-    private fun showCreateDialog() {
-        val dialogBinding = DialogInventoryEntryBinding.inflate(layoutInflater)
-        val products = availableProducts
+    private fun setupSwipeActions() {
+        val swipeCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
 
-        dialogBinding.expiryInputEdit.isFocusable = false
-        dialogBinding.dateBoughtInputEdit.isFocusable = false
-        requireContext().attachDatePicker(dialogBinding.expiryInputEdit)
-        requireContext().attachDatePicker(dialogBinding.dateBoughtInputEdit)
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.bindingAdapterPosition
+                val item = adapter.currentList.getOrNull(position) ?: return
 
-        val labels = products.map { "${it.name} (${it.barcode})" }
-        val storeLabels = availableStores.map { it.name }
-        dialogBinding.productDropdown.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, labels))
-        dialogBinding.storageInputEdit.setAdapter(
-            ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, availableStorageLocations)
-        )
-        dialogBinding.boughtFromInputEdit.setAdapter(
-            ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, storeLabels)
-        )
+                when (direction) {
+                    ItemTouchHelper.LEFT -> {
+                        useItem(item)
+                    }
+                    ItemTouchHelper.RIGHT -> {
+                        showEditDialog(item)
+                    }
+                }
+            }
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.action_add_item)
-            .setView(dialogBinding.root)
-            .setNegativeButton(R.string.action_cancel, null)
-            .setPositiveButton(R.string.action_save, null)
-            .create()
-            .also { dialog ->
-                dialog.setOnShowListener {
-                    dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                        val selectedIndex = labels.indexOf(dialogBinding.productDropdown.text?.toString().orEmpty())
-                        val selectedProduct = products.getOrNull(selectedIndex)
-                        val selectedStore = availableStores.firstOrNull {
-                            it.name == dialogBinding.boughtFromInputEdit.text?.toString().orEmpty()
+            override fun onChildDraw(
+                c: Canvas,
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                dX: Float,
+                dY: Float,
+                actionState: Int,
+                isCurrentlyActive: Boolean
+            ) {
+                val itemView = viewHolder.itemView
+                val context = requireContext()
+
+                if (dX > 0) {
+                    val background = ColorDrawable(ContextCompat.getColor(context, R.color.md_theme_light_primary))
+                    background.setBounds(
+                        itemView.left,
+                        itemView.top,
+                        itemView.left + dX.toInt(),
+                        itemView.bottom
+                    )
+                    background.draw(c)
+
+                    val editIcon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)
+                    editIcon?.let {
+                        val iconMargin = (itemView.height - it.intrinsicHeight) / 2
+                        val iconTop = itemView.top + iconMargin
+                        val iconBottom = iconTop + it.intrinsicHeight
+                        val iconLeft = itemView.left + iconMargin
+                        val iconRight = iconLeft + it.intrinsicWidth
+
+                        if (dX.toInt() > iconRight + iconMargin) {
+                            it.setBounds(iconLeft, iconTop, iconRight, iconBottom)
+                            it.setTint(ContextCompat.getColor(context, R.color.white))
+                            it.draw(c)
                         }
-                        val quantity = dialogBinding.quantityInputEdit.text?.toString().orEmpty().toPositiveFloatOrNull()
-                        val unit = dialogBinding.unitInputEdit.text?.toString().orEmpty().trim()
-                        val dateBoughtText = dialogBinding.dateBoughtInputEdit.text?.toString().orEmpty()
-                        val isDateBoughtFuture = dateBoughtText.isFutureDateInput()
+                    }
+                } else if (dX < 0) {
+                    val background = ColorDrawable(ContextCompat.getColor(context, R.color.expiry_good))
+                    background.setBounds(
+                        itemView.right + dX.toInt(),
+                        itemView.top,
+                        itemView.right,
+                        itemView.bottom
+                    )
+                    background.draw(c)
 
-                        dialogBinding.productInputLayout.error = if (selectedProduct == null) getString(R.string.validation_required_product) else null
-                        dialogBinding.quantityInputLayout.error = if (quantity == null) getString(R.string.validation_quantity_positive) else null
-                        dialogBinding.unitInputLayout.error = if (unit.isBlank()) getString(R.string.validation_required_unit) else null
-                        dialogBinding.dateBoughtInputEdit.error = if (isDateBoughtFuture) getString(R.string.validation_date_bought_not_future) else null
+                    val useIcon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_agenda)
+                    useIcon?.let {
+                        val iconMargin = (itemView.height - it.intrinsicHeight) / 2
+                        val iconTop = itemView.top + iconMargin
+                        val iconBottom = iconTop + it.intrinsicHeight
+                        val iconRight = itemView.right - iconMargin
+                        val iconLeft = iconRight - it.intrinsicWidth
 
-                        if (selectedProduct == null || quantity == null || unit.isBlank() || isDateBoughtFuture) return@setOnClickListener
-
-                        viewModel.createInventoryItem(
-                            barcode = selectedProduct.barcode,
-                            quantity = quantity,
-                            unit = unit,
-                            expiryDate = dialogBinding.expiryInputEdit.text?.toString().orEmpty().parseOptionalDateTime(),
-                            dateBought = dateBoughtText.parseOptionalDateTime(),
-                            storageLocation = dialogBinding.storageInputEdit.text?.toString()?.trim()?.ifEmpty { null },
-                            boughtFromStoreId = selectedStore?.id,
-                            nameOverride = dialogBinding.nameOverrideInputEdit.text?.toString()?.trim()?.ifEmpty { null },
-                        )
-                        dialog.dismiss()
+                        if (-dX.toInt() > iconRight - iconLeft + iconMargin) {
+                            it.setBounds(iconLeft, iconTop, iconRight, iconBottom)
+                            it.setTint(ContextCompat.getColor(context, R.color.white))
+                            it.draw(c)
+                        }
                     }
                 }
-                dialog.show()
+
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
             }
+        }
+
+        ItemTouchHelper(swipeCallback).attachToRecyclerView(binding.recyclerView)
+    }
+
+    private fun useItem(item: InventoryItem) {
+        val newQuantity = item.quantity - 1f
+        if (newQuantity <= 0) {
+            viewModel.deleteItem(item.id)
+            Toast.makeText(context, "Item removed", Toast.LENGTH_SHORT).show()
+        } else {
+            viewModel.saveInventoryItem(
+                item = item,
+                quantity = newQuantity,
+                unit = item.unit,
+                expiryDate = item.expiryDate,
+                storageLocation = item.storageLocation,
+                boughtFromStoreId = item.boughtFromStoreId,
+                nameOverride = item.nameOverride,
+                almostFinished = item.almostFinished
+            )
+            Toast.makeText(context, "Used 1 ${item.unit}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateUiState(isEmpty: Boolean) {
+        val hasError = binding.errorState.root.visibility == View.VISIBLE
+        val isLoading = binding.progressBar.visibility == View.VISIBLE
+
+        binding.recyclerView.visibility = if (isEmpty || hasError || isLoading) View.GONE else View.VISIBLE
+        binding.emptyState.root.visibility = if (isEmpty && !hasError && !isLoading) View.VISIBLE else View.GONE
+    }
+
+    private fun updateLoadingState(isLoading: Boolean) {
+        binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        if (isLoading) {
+            binding.recyclerView.visibility = View.GONE
+            binding.emptyState.root.visibility = View.GONE
+        } else {
+            updateUiState(adapter.currentList.isEmpty())
+        }
+    }
+
+    private fun updateErrorState(error: String?) {
+        if (error != null) {
+            binding.errorState.root.visibility = View.VISIBLE
+            binding.errorState.errorText.text = getString(R.string.error_prefix, error)
+            binding.recyclerView.visibility = View.GONE
+            binding.emptyState.root.visibility = View.GONE
+        } else {
+            binding.errorState.root.visibility = View.GONE
+        }
     }
 
     private fun showEditDialog(item: InventoryItem) {
-        val dialogBinding = DialogInventoryEditBinding.inflate(layoutInflater)
-        dialogBinding.itemNameText.text = item.displayName()
-        dialogBinding.quantityInputEdit.setText(item.quantity.formatQuantity())
-        dialogBinding.expiryInputEdit.setText(item.expiryDate?.toLocalDate()?.toString().orEmpty())
-        dialogBinding.expiryInputEdit.isFocusable = false
-        requireContext().attachDatePicker(dialogBinding.expiryInputEdit)
-        dialogBinding.storageInputEdit.setText(item.storageLocation.orEmpty())
-        dialogBinding.boughtFromInputEdit.setText(item.boughtFromStoreName.orEmpty())
-        dialogBinding.nameOverrideInputEdit.setText(item.nameOverride.orEmpty())
-        dialogBinding.almostFinishedCheckbox.isChecked = item.almostFinished
-        dialogBinding.storageInputEdit.setAdapter(
-            ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, availableStorageLocations)
-        )
-        dialogBinding.boughtFromInputEdit.setAdapter(
-            ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, availableStores.map { it.name })
-        )
+        startActivity(EditInventoryActivity.newIntent(requireContext(), item.id))
+    }
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.action_save)
-            .setView(dialogBinding.root)
-            .setNegativeButton(R.string.action_cancel, null)
-            .setPositiveButton(R.string.action_save, null)
-            .create()
-            .also { dialog ->
-                dialog.setOnShowListener {
-                    dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                        val quantity = dialogBinding.quantityInputEdit.text?.toString().orEmpty().toPositiveFloatOrNull()
-                        val selectedStore = availableStores.firstOrNull {
-                            it.name == dialogBinding.boughtFromInputEdit.text?.toString().orEmpty()
-                        }
-                        dialogBinding.quantityInputLayout.error = if (quantity == null) getString(R.string.validation_quantity_positive) else null
-                        if (quantity == null) return@setOnClickListener
-
-                        viewModel.saveInventoryItem(
-                            item = item,
-                            quantity = quantity,
-                            expiryDate = dialogBinding.expiryInputEdit.text?.toString().orEmpty().parseOptionalDateTime(),
-                            storageLocation = dialogBinding.storageInputEdit.text?.toString()?.trim()?.ifEmpty { null },
-                            boughtFromStoreId = selectedStore?.id,
-                            nameOverride = dialogBinding.nameOverrideInputEdit.text?.toString()?.trim()?.ifEmpty { null },
-                            almostFinished = dialogBinding.almostFinishedCheckbox.isChecked,
-                        )
-                        dialog.dismiss()
+    private fun showReceiptImage(item: InventoryItem) {
+        item.receiptId?.let { receiptId ->
+            viewLifecycleOwner.lifecycleScope.launch {
+                val receipt = viewModel.getReceiptById(receiptId)
+                receipt?.let {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(Uri.parse("file://${it.imagePath}"), "image/*")
+                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+                    try {
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Could not open receipt image", Toast.LENGTH_SHORT).show()
                     }
                 }
-                dialog.show()
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.forceRefresh()
     }
 
     override fun onDestroyView() {

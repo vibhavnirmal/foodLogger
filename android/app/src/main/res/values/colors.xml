@@ -1,6 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="expiry_green">#2E7D32</color>
-    <color name="expiry_orange">#EF6C00</color>
-    <color name="expiry_red">#C62828</color>
+    <!-- Material 3 Light Theme Color Scheme - High Contrast -->
+    
+    <!-- Primary -->
+    <color name="md_theme_light_primary">#6750A4</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_primaryContainer">#EADDFF</color>
+    <color name="md_theme_light_onPrimaryContainer">#21005D</color>
+    
+    <!-- Secondary -->
+    <color name="md_theme_light_secondary">#625B71</color>
+    <color name="md_theme_light_onSecondary">#FFFFFF</color>
+    <color name="md_theme_light_secondaryContainer">#E8DEF8</color>
+    <color name="md_theme_light_onSecondaryContainer">#1D192B</color>
+    
+    <!-- Tertiary -->
+    <color name="md_theme_light_tertiary">#7D5260</color>
+    <color name="md_theme_light_onTertiary">#FFFFFF</color>
+    <color name="md_theme_light_tertiaryContainer">#FFD8E4</color>
+    <color name="md_theme_light_onTertiaryContainer">#31111D</color>
+    
+    <!-- Error -->
+    <color name="md_theme_light_error">#B3261E</color>
+    <color name="md_theme_light_onError">#FFFFFF</color>
+    <color name="md_theme_light_errorContainer">#F9DEDC</color>
+    <color name="md_theme_light_onErrorContainer">#410E0B</color>
+    
+    <!-- Background - slightly off-white for better visibility -->
+    <color name="md_theme_light_background">#F5F5F5</color>
+    <color name="md_theme_light_onBackground">#1C1B1F</color>
+    
+    <!-- Surface - white cards -->
+    <color name="md_theme_light_surface">#FFFFFF</color>
+    <color name="md_theme_light_onSurface">#1C1B1F</color>
+    <color name="md_theme_light_surfaceVariant">#E7E0EC</color>
+    <color name="md_theme_light_onSurfaceVariant">#49454F</color>
+    
+    <!-- Other -->
+    <color name="md_theme_light_outline">#79747E</color>
+    <color name="md_theme_light_outlineVariant">#CAC4D0</color>
+    <color name="md_theme_light_inverseSurface">#313033</color>
+    <color name="md_theme_light_inverseOnSurface">#F4EFF4</color>
+    <color name="md_theme_light_inversePrimary">#D0BCFF</color>
+    <color name="md_theme_light_surfaceTint">#6750A4</color>
+    <color name="md_theme_light_scrim">#000000</color>
+    
+    <!-- Expiry Status Colors - Vivid for visibility -->
+    <color name="expiry_good">#1B5E20</color>
+    <color name="expiry_good_container">#C8E6C9</color>
+    <color name="expiry_expiring_soon">#E65100</color>
+    <color name="expiry_expiring_soon_container">#FFE0B2</color>
+    <color name="expiry_expired">#B71C1C</color>
+    <color name="expiry_expired_container">#FFCDD2</color>
+    <color name="expiry_no_expiry">#546E7A</color>
+    <color name="expiry_no_expiry_container">#CFD8DC</color>
+    
+    <!-- Common Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    
+    <!-- Button Colors -->
+    <color name="colorPrimary">#6750A4</color>
+    <color name="colorPrimaryContainer">#EADDFF</color>
 </resources>

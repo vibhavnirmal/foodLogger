@@ -11,7 +11,7 @@ import com.foodlogger.ui.xml.formatQuantity
 import com.foodlogger.ui.xml.toPositiveFloatOrNull
 
 class RecipeDraftAdapter(
-    private val productsByBarcode: () -> Map<String, Product>,
+    private val productsById: () -> Map<Int, Product>,
     private val onChanged: (List<RecipeIngredientDraft>) -> Unit,
 ) : RecyclerView.Adapter<RecipeDraftAdapter.RecipeDraftViewHolder>() {
 
@@ -39,9 +39,9 @@ class RecipeDraftAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(position: Int) {
             val item = items[position]
-            val productName = productsByBarcode()[item.barcode]?.name ?: item.barcode
-            binding.titleText.text = productName
-            binding.barcodeText.text = item.barcode
+            val product = productsById()[item.productId]
+            binding.titleText.text = product?.name ?: "Unknown Product"
+            binding.barcodeText.text = product?.barcode ?: ""
             binding.quantityInput.setText(item.quantity.formatQuantity())
             binding.unitInput.setText(item.unit)
 

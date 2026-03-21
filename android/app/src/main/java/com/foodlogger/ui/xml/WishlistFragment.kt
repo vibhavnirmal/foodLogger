@@ -28,7 +28,6 @@ class WishlistFragment : Fragment(R.layout.fragment_wishlist) {
 
         adapter = WishlistAdapter(
             onMarkFinished = { item -> viewModel.markAsFinished(item.id) },
-            onDelete = { item -> viewLifecycleOwner.lifecycleScope.launch { viewModel.deleteItem(item.id) } },
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter

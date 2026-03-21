@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.foodlogger.data.db.FoodLoggerDatabase
 import com.foodlogger.data.db.InventoryEntity
 import com.foodlogger.data.db.ProductEntity
+import com.foodlogger.data.db.ReceiptEntity
+import com.foodlogger.data.db.StoreEntity
 import com.foodlogger.data.db.RecipeEntity
 import com.foodlogger.data.db.RecipeIngredientEntity
 import com.foodlogger.data.db.TimeType
@@ -19,6 +21,9 @@ import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.startWith
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -31,9 +36,10 @@ class FoodLoggerRepository @Inject constructor(
     private val httpClient = OkHttpClient()
 
     // PRODUCT operations
-    suspend fun addProduct(product: Product) {
-        database.productDao().insertProduct(
+    suspend fun addProduct(product: Product): Long {
+        return database.productDao().insertProduct(
             ProductEntity(
+                id = product.id,
                 barcode = product.barcode,
                 name = product.name,
                 brand = product.brand,
@@ -45,6 +51,10 @@ class FoodLoggerRepository @Inject constructor(
                 fat = product.fat
             )
         )
+    }
+
+    suspend fun addProductAndGetId(product: Product): Int {
+        return addProduct(product).toInt()
     }
 
     suspend fun getProduct(barcode: String): Product? {
@@ -82,6 +92,7 @@ class FoodLoggerRepository @Inject constructor(
     suspend fun updateProduct(product: Product) {
         database.productDao().updateProduct(
             ProductEntity(
+                id = product.id,
                 barcode = product.barcode,
                 name = product.name,
                 brand = product.brand,
@@ -100,20 +111,26 @@ class FoodLoggerRepository @Inject constructor(
         database.productDao().deleteProductByBarcode(barcode)
     }
 
+    suspend fun deleteProductById(id: Int) {
+        database.productDao().deleteProductById(id)
+    }
+
     // INVENTORY operations
     suspend fun addInventoryItem(
-        barcode: String,
+        productId: Int,
         quantity: Float,
         unit: String,
         dateBought: LocalDateTime?,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
-        nameOverride: String?
+        nameOverride: String?,
+        imageUri: String? = null,
+        receiptId: Int? = null
     ): Long {
         return database.inventoryDao().insertInventory(
             InventoryEntity(
-                barcode = barcode,
+                productId = productId,
                 quantity = quantity,
                 unit = unit,
                 dateBought = dateBought,
@@ -121,7 +138,9 @@ class FoodLoggerRepository @Inject constructor(
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
                 nameOverride = nameOverride,
-                almostFinished = false
+                almostFinished = false,
+                imageUri = imageUri,
+                receiptId = receiptId
             )
         )
     }
@@ -134,21 +153,140 @@ class FoodLoggerRepository @Inject constructor(
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
-        nameOverride: String?
+        nameOverride: String?,
+        imageUri: String? = null,
+        receiptId: Int? = null
     ): Long {
         return database.withTransaction {
-            addProduct(product)
+            val productId = addProductAndGetId(product)
             addInventoryItem(
-                barcode = product.barcode,
+                productId = productId,
                 quantity = quantity,
                 unit = unit,
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
-                nameOverride = nameOverride
+                nameOverride = nameOverride,
+                imageUri = imageUri,
+                receiptId = receiptId
             )
         }
+    }
+
+    // RECEIPT operations
+    suspend fun saveReceipt(imagePath: String, dateShopped: LocalDateTime?, storeId: Int?): Int {
+        val receipt = ReceiptEntity(
+            imagePath = imagePath,
+            dateShopped = dateShopped?.toLocalDate()?.atStartOfDay(),
+            storeId = storeId
+        )
+        return database.receiptDao().insertReceipt(receipt).toInt()
+    }
+
+    suspend fun findDuplicateReceipt(dateShopped: LocalDateTime?, storeId: Int?): ReceiptEntity? {
+        if (dateShopped == null || storeId == null) return null
+        return database.receiptDao().findByDateAndStore(
+            dateShopped = dateShopped.toLocalDate().atStartOfDay(),
+            storeId = storeId
+        )
+    }
+
+    suspend fun getReceiptById(id: Int): ReceiptEntity? {
+        return database.receiptDao().getReceiptById(id)
+    }
+
+    fun getAllReceipts(): Flow<List<ReceiptEntity>> {
+        return database.receiptDao().getAllReceiptsSortedByDate()
+    }
+
+    suspend fun updateReceipt(
+        id: Int,
+        dateShopped: LocalDateTime?,
+        storeId: Int?,
+        storeName: String,
+        totalAmount: Float?
+    ) {
+        database.receiptDao().updateReceipt(
+            id,
+            dateShopped?.toLocalDate()?.atStartOfDay(),
+            storeId,
+            storeName,
+            totalAmount
+        )
+    }
+
+    suspend fun deleteReceipt(id: Int): Boolean {
+        val inventoryDao = database.inventoryDao()
+        val linkedItems = inventoryDao.getInventoryByReceiptId(id)
+        if (linkedItems.isNotEmpty()) {
+            return false
+        }
+        database.receiptDao().deleteReceipt(id)
+        return true
+    }
+
+    fun getInventoryItemsByReceiptId(receiptId: Int): Flow<List<InventoryItem>> {
+        return combine(
+            database.inventoryDao().getInventoryByReceiptIdFlow(receiptId),
+            database.productDao().getAllProducts(),
+            database.storeDao().getAllStoresFlow()
+        ) { inventory, products, stores ->
+            val productMap = products.associateBy { it.id }
+            val storeMap = stores.associateBy { it.id }
+            inventory.map { inventoryEntity ->
+                val product = productMap[inventoryEntity.productId]
+                val store = inventoryEntity.boughtFromStoreId?.let { storeMap[it] }
+                inventoryEntity.toInventoryItem(
+                    productName = product?.name ?: "Unknown Product",
+                    barcode = product?.barcode,
+                    storeName = store?.name,
+                    storeImageUri = store?.imageUri
+                )
+            }
+        }
+    }
+
+    suspend fun addStore(name: String): Int {
+        val store = StoreEntity(name = name)
+        return database.storeDao().insert(store).toInt()
+    }
+
+    suspend fun addItemsFromReceipt(receiptId: Int, itemNames: List<String>): Int {
+        var addedCount = 0
+        database.withTransaction {
+            val receipt = database.receiptDao().getReceiptById(receiptId)
+            val storeId = receipt?.storeId
+            val dateShopped = receipt?.dateShopped ?: LocalDateTime.now()
+            
+            for (name in itemNames) {
+                val product = Product(
+                    barcode = null,
+                    name = name,
+                    brand = null,
+                    category = null,
+                    servingSize = null,
+                    kcal = null,
+                    protein = null,
+                    carbs = null,
+                    fat = null
+                )
+                addProductWithInventory(
+                    product = product,
+                    quantity = 1f,
+                    unit = "item",
+                    dateBought = dateShopped,
+                    expiryDate = null,
+                    storageLocation = null,
+                    boughtFromStoreId = storeId,
+                    nameOverride = null,
+                    imageUri = null,
+                    receiptId = receiptId
+                )
+                addedCount++
+            }
+        }
+        return addedCount
     }
 
     fun getAllInventory(): Flow<List<InventoryItem>> {
@@ -157,17 +295,20 @@ class FoodLoggerRepository @Inject constructor(
             database.productDao().getAllProducts(),
             database.storeDao().getAllStoresFlow()
         ) { inventory, products, stores ->
-            val productMap = products.associateBy { it.barcode }
+            val productMap = products.associateBy { it.id }
             val storeMap = stores.associateBy { it.id }
             inventory.map { inventoryEntity ->
-                val product = productMap[inventoryEntity.barcode]
+                val product = productMap[inventoryEntity.productId]
                 val store = inventoryEntity.boughtFromStoreId?.let { storeMap[it] }
                 inventoryEntity.toInventoryItem(
-                    productName = product?.name ?: inventoryEntity.barcode,
+                    productName = product?.name ?: "Unknown Product",
+                    barcode = product?.barcode,
                     storeName = store?.name,
                     storeImageUri = store?.imageUri
                 )
             }
+        }.onStart {
+            emit(emptyList())
         }
     }
 
@@ -177,13 +318,14 @@ class FoodLoggerRepository @Inject constructor(
             database.productDao().getAllProducts(),
             database.storeDao().getAllStoresFlow()
         ) { inventory, products, stores ->
-            val productMap = products.associateBy { it.barcode }
+            val productMap = products.associateBy { it.id }
             val storeMap = stores.associateBy { it.id }
             inventory.map { inventoryEntity ->
-                val product = productMap[inventoryEntity.barcode]
+                val product = productMap[inventoryEntity.productId]
                 val store = inventoryEntity.boughtFromStoreId?.let { storeMap[it] }
                 inventoryEntity.toInventoryItem(
-                    productName = product?.name ?: inventoryEntity.barcode,
+                    productName = product?.name ?: "Unknown Product",
+                    barcode = product?.barcode,
                     storeName = store?.name,
                     storeImageUri = store?.imageUri
                 )
@@ -194,6 +336,7 @@ class FoodLoggerRepository @Inject constructor(
     suspend fun updateInventoryItem(
         id: Int,
         quantity: Float,
+        unit: String,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
@@ -204,6 +347,7 @@ class FoodLoggerRepository @Inject constructor(
         database.inventoryDao().updateInventory(
             existingItem.copy(
                 quantity = quantity,
+                unit = unit,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
@@ -316,8 +460,8 @@ class FoodLoggerRepository @Inject constructor(
 
         return database.withTransaction {
             ingredients.forEach { ingredient ->
-                require(database.productDao().getProductByBarcode(ingredient.barcode) != null) {
-                    "Unknown product for barcode ${ingredient.barcode}"
+                require(database.productDao().getProductById(ingredient.productId) != null) {
+                    "Unknown product with id ${ingredient.productId}"
                 }
             }
 
@@ -331,7 +475,7 @@ class FoodLoggerRepository @Inject constructor(
                 database.recipeIngredientDao().insertIngredient(
                     RecipeIngredientEntity(
                         recipeId = recipeId.toInt(),
-                        barcode = ingredient.barcode,
+                        productId = ingredient.productId,
                         quantity = ingredient.quantity,
                         unit = ingredient.unit
                     )
@@ -348,14 +492,14 @@ class FoodLoggerRepository @Inject constructor(
             database.recipeIngredientDao().getAllIngredientsFlow(),
             database.productDao().getAllProducts()
         ) { recipes, ingredients, products ->
-            val productMap = products.associateBy { it.barcode }
+            val productMap = products.associateBy { it.id }
             val ingredientsByRecipeId = ingredients.groupBy { it.recipeId }
 
             recipes.map { recipe ->
                 recipe.toRecipe(
                     ingredients = ingredientsByRecipeId[recipe.id].orEmpty().map { ingredient ->
                         ingredient.toRecipeIngredient(
-                            productName = productMap[ingredient.barcode]?.name ?: ingredient.barcode
+                            productName = productMap[ingredient.productId]?.name ?: "Unknown Product"
                         )
                     }
                 )
@@ -367,8 +511,35 @@ class FoodLoggerRepository @Inject constructor(
         database.recipeDao().deleteRecipeById(id)
     }
 
+    suspend fun cookRecipe(recipe: Recipe): Result<Int> {
+        return try {
+            var cookedCount = 0
+            for (ingredient in recipe.ingredients) {
+                val inventoryItems = database.inventoryDao().getInventoryByProductId(ingredient.productId)
+                    .filter { it.quantity >= ingredient.quantity }
+
+                if (inventoryItems.isNotEmpty()) {
+                    val itemToDecrement = inventoryItems.first()
+                    val newQuantity = itemToDecrement.quantity - ingredient.quantity
+                    database.withTransaction {
+                        if (newQuantity <= 0) {
+                            database.inventoryDao().deleteInventoryById(itemToDecrement.id)
+                        } else {
+                            database.inventoryDao().updateInventory(itemToDecrement.copy(quantity = newQuantity))
+                        }
+                    }
+                    cookedCount++
+                }
+            }
+            Result.success(cookedCount)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // Extension functions for mapping
     private fun ProductEntity.toProduct(): Product = Product(
+        id = id,
         barcode = barcode,
         name = name,
         brand = brand,
@@ -384,6 +555,7 @@ class FoodLoggerRepository @Inject constructor(
 
     private fun InventoryEntity.toInventoryItem(
         productName: String,
+        barcode: String?,
         storeName: String?,
         storeImageUri: String?
     ): InventoryItem {
@@ -397,6 +569,7 @@ class FoodLoggerRepository @Inject constructor(
         
         return InventoryItem(
             id = id,
+            productId = productId,
             barcode = barcode,
             productName = productName,
             quantity = quantity,
@@ -409,8 +582,10 @@ class FoodLoggerRepository @Inject constructor(
             boughtFromStoreImageUri = storeImageUri,
             nameOverride = nameOverride,
             almostFinished = almostFinished,
+            imageUri = imageUri,
             dateCreated = dateCreated,
-            expiryStatus = expiryStatus
+            expiryStatus = expiryStatus,
+            receiptId = receiptId
         )
     }
 
@@ -425,7 +600,7 @@ class FoodLoggerRepository @Inject constructor(
     private fun RecipeIngredientEntity.toRecipeIngredient(productName: String): RecipeIngredient = RecipeIngredient(
         id = id,
         recipeId = recipeId,
-        barcode = barcode,
+        productId = productId,
         productName = productName,
         quantity = quantity,
         unit = unit,

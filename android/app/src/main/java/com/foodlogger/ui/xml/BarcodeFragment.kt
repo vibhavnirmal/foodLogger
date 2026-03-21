@@ -28,7 +28,7 @@ import java.util.concurrent.Executors
 
 @AndroidEntryPoint
 class BarcodeFragment : Fragment(R.layout.fragment_barcode) {
-    private var _binding: FragmentBarcodeBinding? = null
+    private var _binding: FragmentBarcodeBinding? = null 
     private val binding get() = _binding!!
     private val viewModel: BarcodeViewModel by viewModels()
     private val analysisExecutor = Executors.newSingleThreadExecutor()

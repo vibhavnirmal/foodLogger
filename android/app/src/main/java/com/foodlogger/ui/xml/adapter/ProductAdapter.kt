@@ -27,15 +27,15 @@ class ProductAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(product: Product) {
             binding.titleText.text = product.name
-            binding.subtitleText.text = listOfNotNull(product.brand, product.category).joinToString(" • ").ifBlank { product.barcode }
-            binding.barcodeText.text = product.barcode
+            binding.subtitleText.text = listOfNotNull(product.brand, product.category).joinToString(" • ").ifBlank { product.barcode ?: "No barcode" }
+            binding.barcodeText.text = product.barcode ?: "No barcode"
             binding.root.setOnClickListener { onClick(product) }
             binding.deleteButton.setOnClickListener { onDelete(product) }
         }
     }
 
     private object DiffCallback : DiffUtil.ItemCallback<Product>() {
-        override fun areItemsTheSame(oldItem: Product, newItem: Product): Boolean = oldItem.barcode == newItem.barcode
+        override fun areItemsTheSame(oldItem: Product, newItem: Product): Boolean = oldItem.id == newItem.id
         override fun areContentsTheSame(oldItem: Product, newItem: Product): Boolean = oldItem == newItem
     }
 }

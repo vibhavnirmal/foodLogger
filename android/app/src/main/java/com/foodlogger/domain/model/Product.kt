@@ -3,7 +3,8 @@ package com.foodlogger.domain.model
 import java.time.LocalDateTime
 
 data class Product(
-    val barcode: String,
+    val id: Int = 0,
+    val barcode: String?,
     val name: String,
     val brand: String?,
     val category: String?,

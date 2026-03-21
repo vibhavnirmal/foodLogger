@@ -1,8 +1,8 @@
 <component name="libraryTable">
   <library name="Gradle: com.google.mlkit:vision-interfaces:16.2.0@aar" external-system-id="GRADLE">
     <CLASSES>
-      <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/c2d197566a6585607efc68c392401043/transformed/vision-interfaces-16.2.0/jars/classes.jar!/" />
-      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/c2d197566a6585607efc68c392401043/transformed/vision-interfaces-16.2.0/AndroidManifest.xml" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-4/2f91b6d9fe44d5d3edc022c1ae98e954/transformed/jetified-vision-interfaces-16.2.0/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-4/2f91b6d9fe44d5d3edc022c1ae98e954/transformed/jetified-vision-interfaces-16.2.0/AndroidManifest.xml" />
     </CLASSES>
     <JAVADOC>
       <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.mlkit/vision-interfaces/16.2.0/999407bac78a164ecd1312764130f7353f0c227a/vision-interfaces-16.2.0-javadoc.jar!/" />

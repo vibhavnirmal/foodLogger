@@ -12,7 +12,6 @@ import com.foodlogger.ui.xml.formatQuantity
 
 class WishlistAdapter(
     private val onMarkFinished: (InventoryItem) -> Unit,
-    private val onDelete: (InventoryItem) -> Unit,
 ) : ListAdapter<InventoryItem, WishlistAdapter.WishlistViewHolder>(DiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): WishlistViewHolder {
@@ -29,10 +28,9 @@ class WishlistAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: InventoryItem) {
             binding.titleText.text = item.displayName()
-            binding.subtitleText.text = item.expiryDate.displayDate()?.let { "Expires: $it" } ?: "Expiry not set"
+            binding.subtitleText.text = item.expiryDate.displayDate()?.let { "Expires: $it" } ?: "No expiry"
             binding.quantityText.text = "${item.quantity.formatQuantity()} ${item.unit}"
             binding.finishButton.setOnClickListener { onMarkFinished(item) }
-            binding.deleteButton.setOnClickListener { onDelete(item) }
         }
     }
 

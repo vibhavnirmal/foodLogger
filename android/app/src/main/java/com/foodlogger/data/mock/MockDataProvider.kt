@@ -106,6 +106,7 @@ object MockDataProvider {
         return listOf(
             InventoryItem(
                 id = 1,
+                productId = 1,
                 barcode = "5901234123457",
                 productName = "Whole Wheat Bread",
                 quantity = 2f,
@@ -119,6 +120,7 @@ object MockDataProvider {
             ),
             InventoryItem(
                 id = 2,
+                productId = 2,
                 barcode = "5901234123458",
                 productName = "Greek Yogurt",
                 quantity = 1f,
@@ -132,6 +134,7 @@ object MockDataProvider {
             ),
             InventoryItem(
                 id = 3,
+                productId = 3,
                 barcode = "5901234123459",
                 productName = "Organic Milk",
                 quantity = 1f,
@@ -145,6 +148,7 @@ object MockDataProvider {
             ),
             InventoryItem(
                 id = 4,
+                productId = 4,
                 barcode = "5901234123460",
                 productName = "Free-Range Eggs",
                 quantity = 6f,
@@ -158,6 +162,7 @@ object MockDataProvider {
             ),
             InventoryItem(
                 id = 5,
+                productId = 5,
                 barcode = "5901234123461",
                 productName = "Salmon Fillet",
                 quantity = 300f,
@@ -171,6 +176,7 @@ object MockDataProvider {
             ),
             InventoryItem(
                 id = 6,
+                productId = 6,
                 barcode = "5901234123462",
                 productName = "Spinach",
                 quantity = 200f,
@@ -184,6 +190,7 @@ object MockDataProvider {
             ),
             InventoryItem(
                 id = 7,
+                productId = 7,
                 barcode = "5901234123463",
                 productName = "Chicken Breast",
                 quantity = 500f,
@@ -197,6 +204,7 @@ object MockDataProvider {
             ),
             InventoryItem(
                 id = 8,
+                productId = 8,
                 barcode = "5901234123464",
                 productName = "Cheddar Cheese",
                 quantity = 150f,
@@ -217,8 +225,8 @@ object MockDataProvider {
             name = "Spinach & Egg Breakfast",
             timeType = TimeType.VERY_FAST,
             ingredients = listOf(
-                RecipeIngredient(id = 1, recipeId = 1, barcode = "5901234123460", productName = "Eggs", quantity = 2f, unit = "eggs"),
-                RecipeIngredient(id = 2, recipeId = 1, barcode = "5901234123462", productName = "Spinach", quantity = 100f, unit = "g")
+                RecipeIngredient(id = 1, recipeId = 1, productId = 4, productName = "Eggs", quantity = 2f, unit = "eggs"),
+                RecipeIngredient(id = 2, recipeId = 1, productId = 6, productName = "Spinach", quantity = 100f, unit = "g")
             )
         ),
         Recipe(
@@ -226,8 +234,8 @@ object MockDataProvider {
             name = "Grilled Salmon with Veggies",
             timeType = TimeType.MODERATE,
             ingredients = listOf(
-                RecipeIngredient(id = 3, recipeId = 2, barcode = "5901234123461", productName = "Salmon", quantity = 200f, unit = "g"),
-                RecipeIngredient(id = 4, recipeId = 2, barcode = "5901234123462", productName = "Spinach", quantity = 150f, unit = "g")
+                RecipeIngredient(id = 3, recipeId = 2, productId = 5, productName = "Salmon", quantity = 200f, unit = "g"),
+                RecipeIngredient(id = 4, recipeId = 2, productId = 6, productName = "Spinach", quantity = 150f, unit = "g")
             )
         ),
         Recipe(
@@ -235,7 +243,7 @@ object MockDataProvider {
             name = "Slow Roasted Chicken",
             timeType = TimeType.SLOW,
             ingredients = listOf(
-                RecipeIngredient(id = 5, recipeId = 3, barcode = "5901234123463", productName = "Chicken", quantity = 500f, unit = "g")
+                RecipeIngredient(id = 5, recipeId = 3, productId = 7, productName = "Chicken", quantity = 500f, unit = "g")
             )
         ),
         Recipe(
@@ -243,9 +251,9 @@ object MockDataProvider {
             name = "Cheesy Eggs Toast",
             timeType = TimeType.VERY_FAST,
             ingredients = listOf(
-                RecipeIngredient(id = 6, recipeId = 4, barcode = "5901234123460", productName = "Eggs", quantity = 3f, unit = "eggs"),
-                RecipeIngredient(id = 7, recipeId = 4, barcode = "5901234123464", productName = "Cheese", quantity = 50f, unit = "g"),
-                RecipeIngredient(id = 8, recipeId = 4, barcode = "5901234123457", productName = "Bread", quantity = 2f, unit = "slices")
+                RecipeIngredient(id = 6, recipeId = 4, productId = 4, productName = "Eggs", quantity = 3f, unit = "eggs"),
+                RecipeIngredient(id = 7, recipeId = 4, productId = 8, productName = "Cheese", quantity = 50f, unit = "g"),
+                RecipeIngredient(id = 8, recipeId = 4, productId = 1, productName = "Bread", quantity = 2f, unit = "slices")
             )
         ),
         Recipe(
@@ -253,7 +261,7 @@ object MockDataProvider {
             name = "Yogurt Berry Parfait",
             timeType = TimeType.VERY_FAST,
             ingredients = listOf(
-                RecipeIngredient(id = 9, recipeId = 5, barcode = "5901234123458", productName = "Greek Yogurt", quantity = 200f, unit = "g")
+                RecipeIngredient(id = 9, recipeId = 5, productId = 2, productName = "Greek Yogurt", quantity = 200f, unit = "g")
             )
         )
     )

@@ -32,7 +32,7 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
 
         adapter = ProductAdapter(
             onClick = ::showEditDialog,
-            onDelete = { product -> viewModel.deleteProduct(product.barcode) },
+            onDelete = { product -> viewModel.deleteProductById(product.id) },
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter

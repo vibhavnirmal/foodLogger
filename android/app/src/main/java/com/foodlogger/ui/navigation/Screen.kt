@@ -1,10 +1,10 @@
 package com.foodlogger.ui.navigation
 
 enum class Screen {
+    HOME,
     INVENTORY,
-    WISHLIST,
-    RECIPES,
-    BARCODE,
     PRODUCTS,
+    RECIPES,
+    HISTORY,
     SETTINGS
 }

@@ -131,4 +131,15 @@ class RecipeViewModel @Inject constructor(
             addRecipe(name, timeType, ingredients)
         }
     }
+
+    suspend fun cookRecipe(recipe: Recipe): Result<Int> {
+        return repository.cookRecipe(recipe)
+    }
+
+    fun cookRecipeAsync(recipe: Recipe, onComplete: (Result<Int>) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.cookRecipe(recipe)
+            onComplete(result)
+        }
+    }
 }

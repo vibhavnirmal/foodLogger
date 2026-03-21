@@ -73,7 +73,7 @@ class ProductViewModel @Inject constructor(
     }
 
     suspend fun addProduct(
-        barcode: String,
+        barcode: String?,
         name: String,
         brand: String? = null,
         category: String? = null,
@@ -125,6 +125,12 @@ class ProductViewModel @Inject constructor(
     fun deleteProduct(barcode: String) {
         viewModelScope.launch {
             deleteProductSuspend(barcode)
+        }
+    }
+
+    fun deleteProductById(id: Int) {
+        viewModelScope.launch {
+            repository.deleteProductById(id)
         }
     }
 

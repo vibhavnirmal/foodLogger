@@ -1,6 +1,7 @@
 package com.foodlogger.ui.xml.adapter
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -24,7 +25,7 @@ class RecipeIngredientAdapter : ListAdapter<RecipeIngredient, RecipeIngredientAd
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: RecipeIngredient) {
             binding.titleText.text = item.productName
-            binding.barcodeText.text = item.barcode
+            binding.barcodeText.visibility = View.GONE
             binding.quantityText.text = "${item.quantity.formatQuantity()} ${item.unit}"
         }
     }

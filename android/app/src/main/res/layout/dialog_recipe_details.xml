@@ -4,4 +4,5 @@
     <TextView android:id="@+id/recipeMetaText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" />
     <TextView android:id="@+id/overviewText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:textStyle="bold" />
     <androidx.recyclerview.widget.RecyclerView android:id="@+id/ingredientsRecycler" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/cookButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="@string/action_cook_recipe" />
 </LinearLayout>

@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FoodLogger</string>
+    <string name="title_home">Home</string>
     <string name="title_inventory">Inventory</string>
-    <string name="title_wishlist">Wishlist</string>
     <string name="title_recipes">Recipes</string>
-    <string name="title_barcode">Barcode</string>
-    <string name="title_products">Products</string>
+    <string name="title_history">History</string>
     <string name="title_settings">Settings</string>
+    <string name="title_products">Products</string>
+    <string name="title_barcode">Scan</string>
     <string name="action_add_item">Add Item</string>
     <string name="action_add_recipe">Add Recipe</string>
     <string name="action_retry">Retry</string>
@@ -55,7 +56,7 @@
     <string name="label_recipe_basics">Recipe Basics</string>
     <string name="label_ingredients">Ingredients</string>
     <string name="label_item_details">Item Details</string>
-    <string name="label_items_finishing_soon">Items finishing soon</string>
+    <string name="label_items_finishing_soon">Items finishing soon / Low stock</string>
     <string name="empty_inventory">No inventory items yet</string>
     <string name="empty_products">No products found yet</string>
     <string name="empty_wishlist">No items finishing soon!</string>
@@ -101,6 +102,23 @@
     <string name="confirm_delete_location">Delete "%1$s"?</string>
     <string name="confirm_delete_store">Delete store "%1$s"?</string>
     <string name="no_image_selected">No image selected</string>
+    <string name="action_cook_recipe">Cook This Recipe</string>
+    <string name="action_cooked_success">Cooked %1$d ingredients from inventory</string>
+    <string name="action_cooked_partial">Some ingredients not available in inventory</string>
+    <string name="action_cooked_none">No ingredients available in inventory</string>
+    <string name="action_scan_receipt">Scan Receipt</string>
+    <string name="empty_receipt_scan">No items detected. Try moving the camera closer to the receipt.</string>
+    <string name="receipt_scan_hold_steady">Hold the receipt steady in front of the camera</string>
+    <string name="action_add_selected">Add Selected</string>
+    <string name="receipt_item_selected">%1$d items selected</string>
     <string name="bought_from_label">Bought from: %1$s</string>
     <string name="store_unknown">Unknown</string>
+    <string name="empty_receipts">No receipts scanned yet</string>
+    <string name="label_date_shopped">Date Shopped</string>
+    <string name="label_store_name">Store Name</string>
+    <string name="label_total_amount">Total Amount</string>
+    <string name="items_from_receipt">Items from this receipt</string>
+    <string name="confirm_delete_receipt">Delete this receipt?</string>
+    <string name="confirm_delete_receipt_message">This action cannot be undone.</string>
+    <string name="no_items_linked">No items linked to this receipt</string>
 </resources>

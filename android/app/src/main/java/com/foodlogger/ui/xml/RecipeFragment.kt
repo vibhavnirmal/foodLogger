@@ -14,6 +14,7 @@ import com.foodlogger.R
 import com.foodlogger.databinding.DialogRecipeCreateBinding
 import com.foodlogger.databinding.DialogRecipeDetailsBinding
 import com.foodlogger.databinding.FragmentRecipesBinding
+import com.google.android.material.snackbar.Snackbar
 import com.foodlogger.domain.model.Product
 import com.foodlogger.domain.model.Recipe
 import com.foodlogger.domain.model.RecipeIngredientDraft
@@ -41,57 +42,70 @@ class RecipeFragment : Fragment(R.layout.fragment_recipes) {
         adapter = RecipeAdapter(onClick = ::showDetailsDialog)
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
+
+        setupFilter()
         binding.addButton.setOnClickListener { showCreateDialog() }
         binding.retryButton.setOnClickListener { viewModel.reloadRecipes() }
-
-        val labels = listOf(getString(R.string.status_all)) + TimeType.entries.map { it.displayLabel() }
-        val filterAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, labels).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        binding.timeDropdown.adapter = filterAdapter
-        binding.timeDropdown.setSelection(0, false)
-        binding.timeDropdown.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                viewModel.setTimeTypeFilter(TimeType.entries.getOrNull(position - 1))
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.recipes.collect { recipes ->
-                        adapter.submitList(viewModel.getFilteredRecipes())
-                        binding.recyclerView.visibility = if (recipes.isEmpty()) View.GONE else View.VISIBLE
+                        val filtered = viewModel.getFilteredRecipes()
+                        adapter.submitList(filtered)
+                        updateUiState(filtered.isEmpty())
                     }
                 }
                 launch {
                     viewModel.timeTypeFilter.collect {
-                        adapter.submitList(viewModel.getFilteredRecipes())
-                        binding.emptyText.visibility = if (viewModel.getFilteredRecipes().isEmpty() && binding.errorGroup.visibility != View.VISIBLE && binding.progressBar.visibility != View.VISIBLE) View.VISIBLE else View.GONE
+                        val filtered = viewModel.getFilteredRecipes()
+                        adapter.submitList(filtered)
+                        updateUiState(filtered.isEmpty())
                     }
                 }
                 launch {
                     viewModel.availableProducts.collect { products -> availableProducts = products }
                 }
                 launch {
-                    viewModel.isLoading.collect { binding.progressBar.visibility = if (it) View.VISIBLE else View.GONE }
+                    viewModel.isLoading.collect { isLoading ->
+                        binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+                    }
                 }
                 launch {
                     viewModel.errorMessage.collect { error ->
                         binding.errorGroup.visibility = if (error != null) View.VISIBLE else View.GONE
-                        binding.errorText.text = error?.let { getString(R.string.error_prefix, it) }
+                        binding.errorText.text = error
                     }
                 }
             }
         }
     }
 
+    private fun setupFilter() {
+        val labels = listOf("All") + TimeType.entries.map { it.displayLabel() }
+        val filterAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, labels).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        binding.timeDropdown.adapter = filterAdapter
+        binding.timeDropdown.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                viewModel.setTimeTypeFilter(TimeType.entries.getOrNull(position - 1))
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+    }
+
+    private fun updateUiState(isEmpty: Boolean) {
+        val hasError = binding.errorGroup.visibility == View.VISIBLE
+        val isLoading = binding.progressBar.visibility == View.VISIBLE
+        binding.recyclerView.visibility = if (isEmpty || hasError || isLoading) View.GONE else View.VISIBLE
+        binding.emptyState.visibility = if (isEmpty && !hasError && !isLoading) View.VISIBLE else View.GONE
+    }
+
     private fun showCreateDialog() {
         val dialogBinding = DialogRecipeCreateBinding.inflate(layoutInflater)
         val draftAdapter = RecipeDraftAdapter(
-            productsByBarcode = { availableProducts.associateBy { it.barcode } },
+            productsById = { availableProducts.associateBy { it.id } },
             onChanged = { },
         )
         val drafts = mutableListOf<RecipeIngredientDraft>()
@@ -105,7 +119,7 @@ class RecipeFragment : Fragment(R.layout.fragment_recipes) {
         dialogBinding.timeDropdown.adapter = timeAdapter
         dialogBinding.timeDropdown.setSelection(TimeType.entries.indexOf(TimeType.MODERATE))
 
-        val productLabels = availableProducts.map { "${it.name} (${it.barcode})" }
+        val productLabels = availableProducts.map { it.name }
         dialogBinding.productDropdown.setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, productLabels))
         dialogBinding.addIngredientButton.setOnClickListener {
             val selection = dialogBinding.productDropdown.text?.toString().orEmpty()
@@ -114,8 +128,8 @@ class RecipeFragment : Fragment(R.layout.fragment_recipes) {
                 return@setOnClickListener
             }
             dialogBinding.productInputLayout.error = null
-            if (drafts.any { it.barcode == product.barcode }) return@setOnClickListener
-            drafts += RecipeIngredientDraft(barcode = product.barcode, quantity = 1f, unit = "unit")
+            if (drafts.any { it.productId == product.id }) return@setOnClickListener
+            drafts += RecipeIngredientDraft(productId = product.id, quantity = 1f, unit = "unit")
             draftAdapter.submitList(drafts.toList())
             dialogBinding.productDropdown.setText("", false)
         }
@@ -135,8 +149,7 @@ class RecipeFragment : Fragment(R.layout.fragment_recipes) {
                         val normalizedDrafts = drafts.toList()
                         dialogBinding.recipeNameInputLayout.error = if (name.isBlank()) getString(R.string.validation_required_recipe_name) else null
                         dialogBinding.ingredientsError.text = if (normalizedDrafts.isEmpty()) getString(R.string.validation_required_ingredient) else ""
-                        val invalidDraft = normalizedDrafts.firstOrNull { it.quantity <= 0f || it.unit.isBlank() }
-                        if (name.isBlank() || normalizedDrafts.isEmpty() || invalidDraft != null) return@setOnClickListener
+                        if (name.isBlank() || normalizedDrafts.isEmpty()) return@setOnClickListener
 
                         viewModel.createRecipe(name, timeType, normalizedDrafts)
                         dialog.dismiss()
@@ -150,17 +163,30 @@ class RecipeFragment : Fragment(R.layout.fragment_recipes) {
         val dialogBinding = DialogRecipeDetailsBinding.inflate(layoutInflater)
         dialogBinding.recipeTitleText.text = recipe.name
         dialogBinding.recipeMetaText.text = getString(R.string.recipe_cook_time, recipe.timeType.displayLabel())
-        dialogBinding.overviewText.text = if (recipe.ingredients.size == 1) {
-            getString(R.string.recipe_ingredient_count_singular, 1)
-        } else {
-            getString(R.string.recipe_ingredient_count, recipe.ingredients.size)
-        }
+        dialogBinding.overviewText.text = "${recipe.ingredients.size} ingredients"
         val adapter = RecipeIngredientAdapter()
         dialogBinding.ingredientsRecycler.layoutManager = LinearLayoutManager(requireContext())
         dialogBinding.ingredientsRecycler.adapter = adapter
         adapter.submitList(recipe.ingredients)
 
-        MaterialAlertDialogBuilder(requireContext())
+        var dialog: androidx.appcompat.app.AlertDialog? = null
+        dialogBinding.cookButton.setOnClickListener {
+            dialog?.dismiss()
+            viewModel.cookRecipeAsync(recipe) { result ->
+                result.onSuccess { count ->
+                    val message = when {
+                        count == recipe.ingredients.size -> getString(R.string.action_cooked_success, count)
+                        count > 0 -> getString(R.string.action_cooked_partial)
+                        else -> getString(R.string.action_cooked_none)
+                    }
+                    view?.let { Snackbar.make(it, message, Snackbar.LENGTH_LONG).show() }
+                }.onFailure { error ->
+                    view?.let { Snackbar.make(it, error.message ?: "Error", Snackbar.LENGTH_LONG).show() }
+                }
+            }
+        }
+
+        dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(dialogBinding.root)
             .setNegativeButton(R.string.action_delete) { _, _ -> viewModel.deleteRecipeItem(recipe.id) }
             .setPositiveButton(R.string.action_close, null)

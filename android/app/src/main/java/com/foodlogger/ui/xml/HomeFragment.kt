@@ -43,7 +43,7 @@ class HomeFragment : Fragment() {
         }
 
         binding.cardShoppingList.setOnClickListener {
-            (activity as? MainActivity)?.navigateToInventory()
+            (activity as? MainActivity)?.navigateToShoppingList()
         }
 
         binding.btnViewExpiringSoon.setOnClickListener {
@@ -51,7 +51,7 @@ class HomeFragment : Fragment() {
         }
 
         binding.btnViewLowStock.setOnClickListener {
-            (activity as? MainActivity)?.navigateToInventory()
+            (activity as? MainActivity)?.navigateToShoppingList()
         }
 
         binding.cardExpiringSoon.setOnClickListener {
@@ -59,7 +59,7 @@ class HomeFragment : Fragment() {
         }
 
         binding.cardLowStock.setOnClickListener {
-            (activity as? MainActivity)?.navigateToInventory()
+            (activity as? MainActivity)?.navigateToShoppingList()
         }
 
         binding.cardReceiptScan.setOnClickListener {

@@ -25,6 +25,12 @@ interface InventoryDao {
     @Query("SELECT COUNT(*) FROM inventory WHERE boughtFromStoreId = :storeId")
     suspend fun countByBoughtFromStoreId(storeId: Int): Int
 
+    @Query("SELECT COUNT(*) FROM inventory WHERE productId = :productId")
+    suspend fun countByProductId(productId: Int): Int
+
+    @Query("UPDATE inventory SET productId = :newProductId WHERE productId = :oldProductId")
+    suspend fun reassignProductId(oldProductId: Int, newProductId: Int)
+
     @Query("UPDATE inventory SET storageLocation = :newName WHERE storageLocation = :oldName")
     suspend fun renameStorageLocationReferences(oldName: String, newName: String)
 
@@ -72,4 +78,7 @@ interface InventoryDao {
 
     @Query("SELECT * FROM inventory WHERE receiptId = :receiptId")
     fun getInventoryByReceiptIdFlow(receiptId: Int): Flow<List<InventoryEntity>>
+
+    @Query("UPDATE inventory SET boughtFromStoreId = :storeId WHERE receiptId = :receiptId")
+    suspend fun updateBoughtFromStoreByReceiptId(receiptId: Int, storeId: Int?)
 }

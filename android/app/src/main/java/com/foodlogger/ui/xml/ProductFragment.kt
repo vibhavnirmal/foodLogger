@@ -1,7 +1,16 @@
 package com.foodlogger.ui.xml
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -10,14 +19,18 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.foodlogger.R
+import com.foodlogger.databinding.DialogProductBarcodeScanBinding
 import com.foodlogger.databinding.DialogProductEditBinding
 import com.foodlogger.databinding.FragmentProductsBinding
 import com.foodlogger.domain.model.Product
 import com.foodlogger.ui.viewmodel.ProductViewModel
 import com.foodlogger.ui.xml.adapter.ProductAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.common.InputImage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.util.concurrent.Executors
 
 @AndroidEntryPoint
 class ProductFragment : Fragment(R.layout.fragment_products) {
@@ -25,6 +38,19 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
     private val binding get() = _binding!!
     private val viewModel: ProductViewModel by viewModels()
     private lateinit var adapter: ProductAdapter
+    private var storeNameByProductId: Map<Int, String> = emptyMap()
+    private var inInventoryProductIds: Set<Int> = emptySet()
+    private val scanExecutor = Executors.newSingleThreadExecutor()
+    private var pendingScanAction: (() -> Unit)? = null
+
+    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            pendingScanAction?.invoke()
+        } else {
+            Toast.makeText(requireContext(), getString(R.string.camera_required_denied), Toast.LENGTH_SHORT).show()
+        }
+        pendingScanAction = null
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -33,6 +59,8 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
         adapter = ProductAdapter(
             onClick = ::showEditDialog,
             onDelete = { product -> viewModel.deleteProductById(product.id) },
+            getStoreName = { productId -> storeNameByProductId[productId] },
+            isInInventory = { productId -> inInventoryProductIds.contains(productId) },
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
@@ -55,8 +83,23 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
                 }
                 launch {
                     viewModel.errorMessage.collect { error ->
-                        binding.errorGroup.visibility = if (error != null) View.VISIBLE else View.GONE
-                        binding.errorText.text = error?.let { getString(R.string.error_prefix, it) }
+                        if (!error.isNullOrBlank()) {
+                            binding.errorGroup.visibility = View.GONE
+                            Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
+                            viewModel.clearError()
+                        }
+                    }
+                }
+                launch {
+                    viewModel.storeNameByProductId.collect { map ->
+                        storeNameByProductId = map
+                        adapter.notifyDataSetChanged()
+                    }
+                }
+                launch {
+                    viewModel.inInventoryProductIds.collect { ids ->
+                        inInventoryProductIds = ids
+                        adapter.notifyDataSetChanged()
                     }
                 }
             }
@@ -68,6 +111,13 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
         dialogBinding.nameInputEdit.setText(product.name)
         dialogBinding.brandInputEdit.setText(product.brand.orEmpty())
         dialogBinding.categoryInputEdit.setText(product.category.orEmpty())
+        dialogBinding.barcodeInputEdit.setText(product.barcode.orEmpty())
+        dialogBinding.barcodeInputLayout.setEndIconOnClickListener {
+            requestBarcodeScan { scanned ->
+                dialogBinding.barcodeInputEdit.setText(scanned)
+                dialogBinding.barcodeInputEdit.setSelection(scanned.length)
+            }
+        }
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.title_products)
@@ -84,6 +134,7 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
 
                         viewModel.saveProduct(
                             product.copy(
+                                barcode = normalizeBarcode(dialogBinding.barcodeInputEdit.text?.toString()),
                                 name = name,
                                 brand = dialogBinding.brandInputEdit.text?.toString()?.trim()?.ifEmpty { null },
                                 category = dialogBinding.categoryInputEdit.text?.toString()?.trim()?.ifEmpty { null },
@@ -96,8 +147,96 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
             }
     }
 
+    private fun requestBarcodeScan(onScanned: (String) -> Unit) {
+        val action = { showBarcodeScannerDialog(onScanned) }
+        if (hasCameraPermission()) {
+            action()
+        } else {
+            pendingScanAction = action
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun hasCameraPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun showBarcodeScannerDialog(onScanned: (String) -> Unit) {
+        val scanBinding = DialogProductBarcodeScanBinding.inflate(layoutInflater)
+        val scanner = BarcodeScanning.getClient()
+        var cameraProvider: ProcessCameraProvider? = null
+        var hasDetectedBarcode = false
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.action_scan_barcode)
+            .setView(scanBinding.root)
+            .setNegativeButton(R.string.action_cancel, null)
+            .create()
+
+        dialog.setOnDismissListener {
+            cameraProvider?.unbindAll()
+        }
+
+        dialog.show()
+
+        val providerFuture = ProcessCameraProvider.getInstance(requireContext())
+        providerFuture.addListener({
+            cameraProvider = providerFuture.get()
+
+            val preview = Preview.Builder().build().apply {
+                setSurfaceProvider(scanBinding.previewView.surfaceProvider)
+            }
+
+            val analysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+
+            analysis.setAnalyzer(scanExecutor) { imageProxy ->
+                val image = imageProxy.image
+                if (image == null || hasDetectedBarcode) {
+                    imageProxy.close()
+                    return@setAnalyzer
+                }
+
+                val inputImage = InputImage.fromMediaImage(image, imageProxy.imageInfo.rotationDegrees)
+                scanner.process(inputImage)
+                    .addOnSuccessListener { barcodes ->
+                        val scannedValue = barcodes.firstOrNull()?.rawValue.orEmpty().trim()
+                        if (scannedValue.isNotBlank() && !hasDetectedBarcode) {
+                            hasDetectedBarcode = true
+                            val normalized = normalizeBarcode(scannedValue) ?: scannedValue
+                            requireActivity().runOnUiThread {
+                                onScanned(normalized)
+                                dialog.dismiss()
+                            }
+                        }
+                    }
+                    .addOnCompleteListener {
+                        imageProxy.close()
+                    }
+            }
+
+            cameraProvider?.unbindAll()
+            cameraProvider?.bindToLifecycle(viewLifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+        }, ContextCompat.getMainExecutor(requireContext()))
+    }
+
+    private fun normalizeBarcode(value: String?): String? {
+        val raw = value?.trim().orEmpty()
+        if (raw.isBlank()) {
+            return null
+        }
+        val digitsOnly = raw.filter { it.isDigit() }
+        return if (digitsOnly.isNotEmpty()) digitsOnly else raw
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scanExecutor.shutdown()
     }
 }

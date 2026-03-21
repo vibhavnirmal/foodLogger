@@ -43,10 +43,7 @@ class ReceiptScanViewModel @Inject constructor(
     private var currentImagePath: String? = null
     private var currentReceiptId: Int? = null
 
-    private val pricePattern = Regex(
-        """(?:\$|€|£|₹|USD|EUR|GBP|INR)?\s*\d{1,3}(?:[\s,.]\d{3})*(?:[.,]\d{2})?""",
-        RegexOption.IGNORE_CASE
-    )
+    private val pricePattern = Regex("""\$?\d+\.?\d{0,2}""")
 
     init {
         loadStores()
@@ -84,6 +81,9 @@ class ReceiptScanViewModel @Inject constructor(
                     .filter { !isHeaderOrFooter(it) }
                     .filter { containsLikelyProductName(it) }
 
+                val parsedNames = lines.map { extractProductName(it) }
+                val existingNameMatches = repository.getExistingProductNameMatches(parsedNames)
+
                 val items = lines.mapIndexed { index, line ->
                     val name = extractProductName(line)
                     val price = extractPrice(line)
@@ -92,7 +92,8 @@ class ReceiptScanViewModel @Inject constructor(
                         name = name,
                         price = price,
                         quantity = 1,
-                        isSelected = true
+                        isSelected = true,
+                        productExists = existingNameMatches.contains(name.trim().lowercase())
                     )
                 }
 
@@ -139,55 +140,8 @@ class ReceiptScanViewModel @Inject constructor(
     }
 
     private fun extractPrice(line: String): Float? {
-        // OCR often inserts spaces around separators (e.g. "1 . 99"), so compact those first.
-        val compacted = line
-            .replace(Regex("""(\d)\s*([.,])\s*(\d)"""), "$1$2$3")
-            .replace(Regex("""([€£₹$])\s+(\d)"""), "$1$2")
-
-        val candidates = pricePattern.findAll(compacted)
-            .mapNotNull { normalizePriceToken(it.value) }
-            .toList()
-
-        if (candidates.isNotEmpty()) {
-            // In most receipts the item price appears at the end of the line.
-            return candidates.last()
-        }
-
-        // Fallback for OCR like "199" intended as "1.99" at end of the line.
-        val trailingCents = Regex("""(\d+)\s?(\d{2})$""").find(compacted)
-        return trailingCents?.let {
-            "${it.groupValues[1]}.${it.groupValues[2]}".toFloatOrNull()
-        }
-    }
-
-    private fun normalizePriceToken(raw: String): Float? {
-        var token = raw.trim()
-            .replace(Regex("""(?i)USD|EUR|GBP|INR"""), "")
-            .replace(Regex("""[€£₹$]"""), "")
-            .replace(" ", "")
-
-        if (token.isBlank()) return null
-
-        val lastDot = token.lastIndexOf('.')
-        val lastComma = token.lastIndexOf(',')
-
-        token = when {
-            lastDot >= 0 && lastComma >= 0 -> {
-                // Choose the rightmost separator as decimal separator.
-                if (lastDot > lastComma) {
-                    token.replace(",", "")
-                } else {
-                    token.replace(".", "").replace(',', '.')
-                }
-            }
-            lastComma >= 0 -> {
-                val decimals = token.length - lastComma - 1
-                if (decimals == 2) token.replace(',', '.') else token.replace(",", "")
-            }
-            else -> token
-        }
-
-        return token.toFloatOrNull()
+        val priceMatch = pricePattern.findAll(line).lastOrNull()
+        return priceMatch?.value?.replace("$", "")?.toFloatOrNull()
     }
 
     fun toggleItemSelection(itemId: String, isSelected: Boolean) {

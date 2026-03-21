@@ -18,6 +18,7 @@ import com.foodlogger.ui.xml.ProductFragment
 import com.foodlogger.ui.xml.ReceiptCaptureActivity
 import com.foodlogger.ui.xml.RecipeFragment
 import com.foodlogger.ui.xml.ReceiptsFragment
+import com.foodlogger.ui.xml.ShoppingListFragment
 import com.foodlogger.ui.xml.SettingsFragment
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -192,6 +193,27 @@ class MainActivity : AppCompatActivity() {
         isNavigating = true
         isInProducts = false
         showScreen(Screen.INVENTORY, fromNav = false)
+    }
+
+    fun navigateToShoppingList() {
+        isNavigating = true
+        isInProducts = false
+        currentScreen = Screen.HOME
+
+        binding.fragmentContainer.visibility = View.VISIBLE
+        binding.settingsContainer.visibility = View.GONE
+        binding.bottomNavigation.visibility = View.VISIBLE
+        binding.topAppBar.navigationIcon = null
+        binding.topAppBar.setNavigationOnClickListener(null)
+        binding.topAppBar.title = getString(R.string.title_shopping_list)
+
+        if (supportFragmentManager.findFragmentByTag("SHOPPING_LIST") == null) {
+            supportFragmentManager.commit {
+                replace(R.id.fragmentContainer, ShoppingListFragment(), "SHOPPING_LIST")
+            }
+        }
+        invalidateOptionsMenu()
+        isNavigating = false
     }
 
     fun navigateToReceiptScan() {

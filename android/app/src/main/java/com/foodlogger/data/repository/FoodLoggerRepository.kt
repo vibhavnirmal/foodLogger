@@ -36,8 +36,8 @@ class FoodLoggerRepository @Inject constructor(
     private val httpClient = OkHttpClient()
 
     // PRODUCT operations
-    suspend fun addProduct(product: Product): Long {
-        return database.productDao().insertProduct(
+    suspend fun addProduct(product: Product, mergeByName: Boolean = true): Long {
+        val insertedId = database.productDao().insertProduct(
             ProductEntity(
                 id = product.id,
                 barcode = product.barcode,
@@ -51,10 +51,14 @@ class FoodLoggerRepository @Inject constructor(
                 fat = product.fat
             )
         )
+        if (mergeByName) {
+            mergeProductsByName(product.name)
+        }
+        return insertedId
     }
 
-    suspend fun addProductAndGetId(product: Product): Int {
-        return addProduct(product).toInt()
+    suspend fun addProductAndGetId(product: Product, mergeByName: Boolean = true): Int {
+        return addProduct(product, mergeByName = mergeByName).toInt()
     }
 
     suspend fun getProduct(barcode: String): Product? {
@@ -89,6 +93,19 @@ class FoodLoggerRepository @Inject constructor(
         }
     }
 
+    suspend fun getExistingProductNameMatches(names: List<String>): Set<String> {
+        val normalizedNames = names
+            .map { normalizedName(it) }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        if (normalizedNames.isEmpty()) {
+            return emptySet()
+        }
+
+        return database.productDao().getExistingNormalizedNames(normalizedNames).toSet()
+    }
+
     suspend fun updateProduct(product: Product) {
         database.productDao().updateProduct(
             ProductEntity(
@@ -105,6 +122,7 @@ class FoodLoggerRepository @Inject constructor(
                 lastUpdated = LocalDateTime.now()
             )
         )
+        mergeProductsByName(product.name)
     }
 
     suspend fun deleteProduct(barcode: String) {
@@ -112,8 +130,85 @@ class FoodLoggerRepository @Inject constructor(
     }
 
     suspend fun deleteProductById(id: Int) {
+        val usageCount = database.inventoryDao().countByProductId(id)
+        require(usageCount == 0) { "Cannot delete product because it exists in inventory" }
         database.productDao().deleteProductById(id)
     }
+
+    suspend fun mergeProductsWithSameName() {
+        database.withTransaction {
+            val duplicates = database.productDao().getDuplicateNameProducts()
+            if (duplicates.isEmpty()) return@withTransaction
+
+            duplicates
+                .groupBy { normalizedName(it.name) }
+                .values
+                .forEach { group -> mergeProductGroup(group) }
+        }
+    }
+
+    private suspend fun mergeProductsByName(name: String) {
+        val normalized = normalizedName(name)
+        if (normalized.isBlank()) return
+
+        database.withTransaction {
+            val matches = database.productDao().getProductsByNormalizedName(normalized)
+            mergeProductGroup(matches)
+        }
+    }
+
+    private suspend fun mergeProductGroup(group: List<ProductEntity>) {
+        if (group.size <= 1) return
+
+        val canonical = group
+            .sortedWith(compareByDescending<ProductEntity> { !it.barcode.isNullOrBlank() }.thenBy { it.id })
+            .first()
+        val duplicates = group.filter { it.id != canonical.id }
+
+        val mergedCanonical = canonical.copy(
+            name = firstNonBlank(canonical.name, duplicates.map { it.name }) ?: canonical.name,
+            barcode = firstNonBlank(canonical.barcode, duplicates.map { it.barcode }),
+            brand = firstNonBlank(canonical.brand, duplicates.map { it.brand }),
+            category = firstNonBlank(canonical.category, duplicates.map { it.category }),
+            servingSize = firstNonBlank(canonical.servingSize, duplicates.map { it.servingSize }),
+            kcal = canonical.kcal ?: duplicates.firstNotNullOfOrNull { it.kcal },
+            protein = canonical.protein ?: duplicates.firstNotNullOfOrNull { it.protein },
+            carbs = canonical.carbs ?: duplicates.firstNotNullOfOrNull { it.carbs },
+            fat = canonical.fat ?: duplicates.firstNotNullOfOrNull { it.fat },
+            createdAt = group.minByOrNull { it.createdAt }?.createdAt ?: canonical.createdAt,
+            lastUpdated = LocalDateTime.now()
+        )
+
+        duplicates.forEach { duplicate ->
+            database.inventoryDao().reassignProductId(duplicate.id, canonical.id)
+            database.recipeIngredientDao().reassignProductId(duplicate.id, canonical.id)
+            database.productDao().deleteProductById(duplicate.id)
+        }
+
+        if (hasProductChanges(canonical, mergedCanonical)) {
+            database.productDao().updateProduct(mergedCanonical)
+        }
+    }
+
+    private fun hasProductChanges(before: ProductEntity, after: ProductEntity): Boolean {
+        return before.name != after.name ||
+            before.barcode != after.barcode ||
+            before.brand != after.brand ||
+            before.category != after.category ||
+            before.servingSize != after.servingSize ||
+            before.kcal != after.kcal ||
+            before.protein != after.protein ||
+            before.carbs != after.carbs ||
+            before.fat != after.fat ||
+            before.createdAt != after.createdAt
+    }
+
+    private fun firstNonBlank(current: String?, others: List<String?>): String? {
+        if (!current.isNullOrBlank()) return current
+        return others.firstOrNull { !it.isNullOrBlank() }?.trim()
+    }
+
+    private fun normalizedName(name: String): String = name.trim().lowercase()
 
     // INVENTORY operations
     suspend fun addInventoryItem(
@@ -158,8 +253,8 @@ class FoodLoggerRepository @Inject constructor(
         receiptId: Int? = null
     ): Long {
         return database.withTransaction {
-            val productId = addProductAndGetId(product)
-            addInventoryItem(
+            val productId = addProductAndGetId(product, mergeByName = false)
+            val inventoryId = addInventoryItem(
                 productId = productId,
                 quantity = quantity,
                 unit = unit,
@@ -171,6 +266,8 @@ class FoodLoggerRepository @Inject constructor(
                 imageUri = imageUri,
                 receiptId = receiptId
             )
+            mergeProductsByName(product.name)
+            inventoryId
         }
     }
 
@@ -207,13 +304,21 @@ class FoodLoggerRepository @Inject constructor(
         storeName: String,
         totalAmount: Float?
     ) {
-        database.receiptDao().updateReceipt(
-            id,
-            dateShopped?.toLocalDate()?.atStartOfDay(),
-            storeId,
-            storeName,
-            totalAmount
-        )
+        database.withTransaction {
+            database.receiptDao().updateReceipt(
+                id,
+                dateShopped?.toLocalDate()?.atStartOfDay(),
+                storeId,
+                storeName,
+                totalAmount
+            )
+
+            // Keep receipt-linked inventory in sync with edited receipt store.
+            database.inventoryDao().updateBoughtFromStoreByReceiptId(
+                receiptId = id,
+                storeId = storeId
+            )
+        }
     }
 
     suspend fun deleteReceipt(id: Int): Boolean {

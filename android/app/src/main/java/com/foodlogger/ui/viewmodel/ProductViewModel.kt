@@ -3,6 +3,7 @@ package com.foodlogger.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.foodlogger.data.repository.FoodLoggerRepository
+import com.foodlogger.domain.model.InventoryItem
 import com.foodlogger.domain.model.Product
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,8 +32,52 @@ class ProductViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _storeNameByProductId = MutableStateFlow<Map<Int, String>>(emptyMap())
+    val storeNameByProductId: StateFlow<Map<Int, String>> = _storeNameByProductId.asStateFlow()
+
+    private val _inInventoryProductIds = MutableStateFlow<Set<Int>>(emptySet())
+    val inInventoryProductIds: StateFlow<Set<Int>> = _inInventoryProductIds.asStateFlow()
+
     init {
+        mergeDuplicateProductsByName()
         loadProducts()
+        loadProductStores()
+    }
+
+    private fun mergeDuplicateProductsByName() {
+        viewModelScope.launch {
+            try {
+                repository.mergeProductsWithSameName()
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error merging products"
+            }
+        }
+    }
+
+    private fun loadProductStores() {
+        viewModelScope.launch {
+            try {
+                repository.getAllInventory().collect { items ->
+                    _storeNameByProductId.value = buildStoreNameMap(items)
+                    _inInventoryProductIds.value = items.map { it.productId }.toSet()
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error loading product stores"
+            }
+        }
+    }
+
+    private fun buildStoreNameMap(items: List<InventoryItem>): Map<Int, String> {
+        return items
+            .groupBy { it.productId }
+            .mapValues { (_, group) ->
+                group
+                    .sortedByDescending { it.dateBought ?: it.dateCreated }
+                    .firstOrNull { !it.boughtFromStoreName.isNullOrBlank() }
+                    ?.boughtFromStoreName
+                    .orEmpty()
+            }
+            .filterValues { it.isNotBlank() }
     }
 
     private fun loadProducts() {
@@ -130,7 +175,11 @@ class ProductViewModel @Inject constructor(
 
     fun deleteProductById(id: Int) {
         viewModelScope.launch {
-            repository.deleteProductById(id)
+            try {
+                repository.deleteProductById(id)
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error deleting product"
+            }
         }
     }
 

@@ -21,6 +21,9 @@ interface RecipeIngredientDao {
     @Query("SELECT * FROM recipe_ingredients WHERE recipeId = :recipeId")
     fun getIngredientsForRecipeFlow(recipeId: Int): Flow<List<RecipeIngredientEntity>>
 
+    @Query("UPDATE recipe_ingredients SET productId = :newProductId WHERE productId = :oldProductId")
+    suspend fun reassignProductId(oldProductId: Int, newProductId: Int)
+
     @Update
     suspend fun updateIngredient(ingredient: RecipeIngredientEntity)
 

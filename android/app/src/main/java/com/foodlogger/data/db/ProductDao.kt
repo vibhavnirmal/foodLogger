@@ -22,6 +22,26 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE id = :id")
     suspend fun getProductById(id: Int): ProductEntity?
 
+    @Query("SELECT * FROM products WHERE lower(trim(name)) = lower(trim(:name)) ORDER BY id ASC")
+    suspend fun getProductsByNormalizedName(name: String): List<ProductEntity>
+
+    @Query("SELECT lower(trim(name)) FROM products WHERE lower(trim(name)) IN (:normalizedNames)")
+    suspend fun getExistingNormalizedNames(normalizedNames: List<String>): List<String>
+
+    @Query(
+        """
+        SELECT * FROM products
+        WHERE lower(trim(name)) IN (
+            SELECT lower(trim(name))
+            FROM products
+            GROUP BY lower(trim(name))
+            HAVING COUNT(*) > 1
+        )
+        ORDER BY lower(trim(name)) ASC, id ASC
+        """
+    )
+    suspend fun getDuplicateNameProducts(): List<ProductEntity>
+
     @Query("SELECT * FROM products ORDER BY name ASC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 

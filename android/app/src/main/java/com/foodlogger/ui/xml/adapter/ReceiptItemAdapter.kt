@@ -42,6 +42,7 @@ class ReceiptItemAdapter(
             currentItem = item
             binding.itemName.text = item.name
             binding.itemPrice.text = item.price?.let { String.format("$%.2f", it) } ?: ""
+            binding.productExistsIndicator.visibility = if (item.productExists) android.view.View.VISIBLE else android.view.View.GONE
             
             if (binding.checkbox.isChecked != item.isSelected) {
                 binding.checkbox.isChecked = item.isSelected

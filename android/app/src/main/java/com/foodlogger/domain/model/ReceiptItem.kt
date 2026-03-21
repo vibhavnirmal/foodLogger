@@ -5,5 +5,6 @@ data class ReceiptItem(
     val name: String,
     val price: Float? = null,
     val quantity: Int = 1,
-    val isSelected: Boolean = false
+    val isSelected: Boolean = false,
+    val productExists: Boolean = false
 )

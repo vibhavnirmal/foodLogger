@@ -7,6 +7,7 @@
     <string name="title_history">History</string>
     <string name="title_settings">Settings</string>
     <string name="title_products">Products</string>
+    <string name="title_shopping_list">Shopping List</string>
     <string name="title_barcode">Scan</string>
     <string name="action_add_item">Add Item</string>
     <string name="action_add_recipe">Add Recipe</string>
@@ -16,6 +17,7 @@
     <string name="action_close">Close</string>
     <string name="action_back">Back</string>
     <string name="action_delete">Delete</string>
+    <string name="action_scan_barcode">Scan Barcode</string>
     <string name="action_search_product">Search Product</string>
     <string name="action_add_inventory">Add to Inventory</string>
     <string name="action_add_product_inventory">Add Product and Inventory</string>
@@ -67,6 +69,8 @@
     <string name="status_all">ALL</string>
     <string name="status_expires">EXPIRES</string>
     <string name="status_good">GOOD</string>
+    <string name="status_in_inventory">In inventory</string>
+    <string name="status_not_in_inventory">Not in inventory</string>
     <string name="status_expiring_soon">EXPIRING SOON</string>
     <string name="status_expired">EXPIRED</string>
     <string name="camera">Camera</string>
@@ -111,6 +115,7 @@
     <string name="receipt_scan_hold_steady">Hold the receipt steady in front of the camera</string>
     <string name="action_add_selected">Add Selected</string>
     <string name="receipt_item_selected">%1$d items selected</string>
+    <string name="legend_product_exists">✓ Product Exists</string>
     <string name="bought_from_label">Bought from: %1$s</string>
     <string name="store_unknown">Unknown</string>
     <string name="empty_receipts">No receipts scanned yet</string>

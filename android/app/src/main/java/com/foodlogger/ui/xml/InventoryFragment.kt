@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -31,7 +32,9 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
     private val binding get() = _binding!!
     private val viewModel: InventoryViewModel by viewModels()
     private lateinit var adapter: InventoryAdapter
-    
+
+    private var latestItems: List<InventoryItem> = emptyList()
+    private var currentSearchQuery: String = ""
     private var isSortedByExpiry = false
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -47,6 +50,7 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
         binding.recyclerView.adapter = adapter
 
         setupSwipeActions()
+        setupSearch()
         setupSortButton()
         binding.errorState.retryButton.setOnClickListener { viewModel.reloadInventory() }
 
@@ -54,20 +58,8 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.inventoryItems.collect { items ->
-                        val sortedItems = if (isSortedByExpiry) {
-                            items.sortedWith(compareBy<InventoryItem> { item ->
-                                when {
-                                    item.expiryDate == null -> Long.MAX_VALUE
-                                    item.expiryStatus == ExpiryStatus.EXPIRED -> 0
-                                    item.expiryStatus == ExpiryStatus.EXPIRING_SOON -> 1
-                                    else -> 2
-                                }
-                            }.thenBy { it.expiryDate ?: java.time.LocalDateTime.MAX })
-                        } else {
-                            items
-                        }
-                        adapter.submitList(sortedItems)
-                        updateUiState(sortedItems.isEmpty())
+                        latestItems = items
+                        renderItems()
                     }
                 }
                 launch {
@@ -85,16 +77,54 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
         viewModel.forceRefresh()
     }
 
+    private fun setupSearch() {
+        binding.searchInput.doAfterTextChanged { editable ->
+            currentSearchQuery = editable?.toString().orEmpty()
+            renderItems()
+        }
+    }
+
     private fun setupSortButton() {
         binding.sortButton.setOnClickListener {
             isSortedByExpiry = !isSortedByExpiry
-            viewModel.forceRefresh()
+            renderItems()
             Toast.makeText(
                 context,
                 if (isSortedByExpiry) "Sorted by expiry" else "Sort removed",
                 Toast.LENGTH_SHORT
             ).show()
         }
+    }
+
+    private fun renderItems() {
+        val query = currentSearchQuery.trim().lowercase()
+        val filteredItems = if (query.isBlank()) {
+            latestItems
+        } else {
+            latestItems.filter { item ->
+                item.displayName().lowercase().contains(query) ||
+                    item.productName.lowercase().contains(query) ||
+                    (item.barcode?.lowercase()?.contains(query) == true) ||
+                    (item.storageLocation?.lowercase()?.contains(query) == true) ||
+                    (item.boughtFromStoreName?.lowercase()?.contains(query) == true)
+            }
+        }
+
+        val displayedItems = if (isSortedByExpiry) {
+            filteredItems.sortedWith(compareBy<InventoryItem> { item ->
+                when {
+                    item.expiryDate == null -> Long.MAX_VALUE
+                    item.expiryStatus == ExpiryStatus.EXPIRED -> 0
+                    item.expiryStatus == ExpiryStatus.EXPIRING_SOON -> 1
+                    else -> 2
+                }
+            }.thenBy { it.expiryDate ?: java.time.LocalDateTime.MAX })
+        } else {
+            filteredItems
+        }
+
+        adapter.submitList(displayedItems)
+        updateUiState(displayedItems.isEmpty())
     }
 
     private fun setupSwipeActions() {

@@ -32,6 +32,7 @@
     <string name="action_image">Image</string>
     <string name="action_edit">Edit</string>
     <string name="hint_search_products">Search products...</string>
+    <string name="hint_search_inventory">Search inventory...</string>
     <string name="hint_search_selector">Search by name, brand, or barcode</string>
     <string name="hint_barcode">Enter barcode...</string>
     <string name="label_quantity">Quantity</string>

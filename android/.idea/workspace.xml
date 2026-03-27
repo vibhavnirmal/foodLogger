@@ -45,6 +45,11 @@
           <theme>@style/Theme.FoodLogger</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/dialog_receipt_image_preview.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/dialog_recipe_details.xml">
         <config>
           <theme>@style/Theme.FoodLogger</theme>
@@ -61,6 +66,41 @@
         </config>
       </layout>
       <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_products.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_shopping_list.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_wishlist.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_inventory.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_product.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_receipt.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_receipt_history.xml">
+        <config>
+          <theme>@style/Theme.FoodLogger</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_wishlist.xml">
         <config>
           <theme>@style/Theme.FoodLogger</theme>
         </config>
@@ -82,15 +122,46 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cbfefc0f-c123-465d-879e-6cccd5c43f03" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/app/src/main/res/drawable/baseline_check_box_24.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.7/executionHistory/executionHistory.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.7/executionHistory/executionHistory.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.7/executionHistory/executionHistory.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.7/executionHistory/executionHistory.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.7/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.7/fileHashes/fileHashes.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.7/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.7/fileHashes/fileHashes.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/8.7/fileHashes/resourceHashesCache.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.7/fileHashes/resourceHashesCache.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gradle/file-system.probe" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/file-system.probe" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/MainActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/db/FoodLoggerDatabase.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/db/FoodLoggerDatabase.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/db/InventoryDao.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/db/InventoryDao.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/db/ProductEntity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/db/ProductEntity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/mock/MockDataProvider.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/repository/FoodLoggerRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/data/repository/FoodLoggerRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/domain/model/Product.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/domain/model/Product.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/BarcodeViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/BarcodeViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/InventoryViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/InventoryViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/ProductViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/ProductViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/ReceiptDetailViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/ReceiptDetailViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/ReceiptScanViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/ReceiptScanViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/WishlistViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/viewmodel/WishlistViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/AddBottomSheet.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/AddBottomSheet.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/AddInventoryActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/AddInventoryActivity.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/InventoryFragment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/InventoryFragment.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/fragment_inventory.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/fragment_inventory.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ProductFragment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ProductFragment.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ReceiptDetailActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ReceiptDetailActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ReceiptReviewActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ReceiptReviewActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ShoppingListFragment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/ShoppingListFragment.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/WishlistFragment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/WishlistFragment.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/adapter/InventoryAdapter.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/adapter/InventoryAdapter.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/adapter/ProductAdapter.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/adapter/ProductAdapter.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/adapter/WishlistAdapter.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/foodlogger/ui/xml/adapter/WishlistAdapter.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/dialog_product_edit.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/dialog_product_edit.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/fragment_shopping_list.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/fragment_shopping_list.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/item_inventory.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/item_inventory.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/item_product.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/item_product.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/item_receipt_history.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/item_receipt_history.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/item_wishlist.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/item_wishlist.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/page_receipt_image.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/page_receipt_image.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -157,6 +228,9 @@
   &quot;associatedIndex&quot;: 5
 }</component>
   <component name="ProjectId" id="3B3bRxwgyoixdVdUA2JjMRtcCsa" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />

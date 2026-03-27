@@ -198,11 +198,6 @@ class BarcodeViewModel @Inject constructor(
                 name = name,
                 brand = brand,
                 category = null,
-                servingSize = null,
-                kcal = null,
-                protein = null,
-                carbs = null,
-                fat = null
             )
             repository.addProductWithInventory(
                 product = product,
@@ -232,11 +227,6 @@ class BarcodeViewModel @Inject constructor(
                     name = name,
                     brand = brand,
                     category = null,
-                    servingSize = null,
-                    kcal = null,
-                    protein = null,
-                    carbs = null,
-                    fat = null
                 )
             )
             _product.value = Product(
@@ -244,11 +234,6 @@ class BarcodeViewModel @Inject constructor(
                 name = name,
                 brand = brand,
                 category = null,
-                servingSize = null,
-                kcal = null,
-                protein = null,
-                carbs = null,
-                fat = null
             )
             _errorMessage.value = null
         } catch (e: Exception) {

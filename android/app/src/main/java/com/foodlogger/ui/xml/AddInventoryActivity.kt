@@ -204,12 +204,7 @@ class AddInventoryActivity : AppCompatActivity() {
                     barcode = barcode,
                     name = productName,
                     brand = null,
-                    category = null,
-                    servingSize = null,
-                    kcal = null,
-                    protein = null,
-                    carbs = null,
-                    fat = null
+                    category = null
                 )
             }
         } else {

@@ -21,6 +21,11 @@ class InventoryViewModel @Inject constructor(
     private val repository: FoodLoggerRepository
 ) : ViewModel() {
 
+    private data class RestorePlacement(
+        val signature: String,
+        val preferredIndex: Int,
+    )
+
     private val _inventoryItems = MutableStateFlow<List<InventoryItem>>(emptyList())
     val inventoryItems: StateFlow<List<InventoryItem>> = _inventoryItems.asStateFlow()
 
@@ -38,6 +43,8 @@ class InventoryViewModel @Inject constructor(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private var restorePlacement: RestorePlacement? = null
 
     init {
         loadInventory()
@@ -63,7 +70,7 @@ class InventoryViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 repository.getAllInventory().take(1).collect { items ->
-                    _inventoryItems.value = items
+                    _inventoryItems.value = applyRestorePlacement(items)
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Unknown error loading inventory"
@@ -73,7 +80,7 @@ class InventoryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             repository.getAllInventory().collect { items ->
-                _inventoryItems.value = items
+                _inventoryItems.value = applyRestorePlacement(items)
             }
         }
     }
@@ -168,10 +175,77 @@ class InventoryViewModel @Inject constructor(
         _errorMessage.value = null
     }
 
-    fun deleteItem(id: Int) {
+    fun deleteItem(item: InventoryItem, originalIndex: Int? = null) {
+        _inventoryItems.value = _inventoryItems.value.filterNot { it.id == item.id }
         viewModelScope.launch {
-            deleteInventoryItem(id)
+            try {
+                deleteInventoryItem(item.id)
+            } catch (e: Exception) {
+                _inventoryItems.value = insertAtPreferredIndex(_inventoryItems.value, item, originalIndex)
+            }
         }
+    }
+
+    fun restoreDeletedItem(item: InventoryItem, originalIndex: Int? = null) {
+        if (originalIndex != null) {
+            restorePlacement = RestorePlacement(
+                signature = inventorySignature(item),
+                preferredIndex = originalIndex,
+            )
+        }
+        if (_inventoryItems.value.none { it.id == item.id }) {
+            _inventoryItems.value = insertAtPreferredIndex(_inventoryItems.value, item, originalIndex)
+        }
+        viewModelScope.launch {
+            try {
+                repository.restoreInventoryItem(item)
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error restoring item"
+                _inventoryItems.value = _inventoryItems.value.filterNot { it.id == item.id }
+            }
+        }
+    }
+
+    private fun insertAtPreferredIndex(
+        current: List<InventoryItem>,
+        item: InventoryItem,
+        preferredIndex: Int?
+    ): List<InventoryItem> {
+        val withoutItem = current.filterNot { it.id == item.id }
+        val mutable = withoutItem.toMutableList()
+        val targetIndex = (preferredIndex ?: mutable.size).coerceIn(0, mutable.size)
+        mutable.add(targetIndex, item)
+        return mutable
+    }
+
+    private fun applyRestorePlacement(items: List<InventoryItem>): List<InventoryItem> {
+        val placement = restorePlacement ?: return items
+        val fromIndex = items.indexOfFirst { inventorySignature(it) == placement.signature }
+        if (fromIndex < 0) return items
+
+        val mutable = items.toMutableList()
+        val restoredItem = mutable.removeAt(fromIndex)
+        val targetIndex = placement.preferredIndex.coerceIn(0, mutable.size)
+        mutable.add(targetIndex, restoredItem)
+        return mutable
+    }
+
+    private fun inventorySignature(item: InventoryItem): String {
+        return listOf(
+            item.productId.toString(),
+            item.displayName(),
+            item.quantity.toString(),
+            item.unit,
+            item.dateBought?.toString().orEmpty(),
+            item.expiryDate?.toString().orEmpty(),
+            item.storageLocation.orEmpty(),
+            item.boughtFromStoreId?.toString().orEmpty(),
+            item.nameOverride.orEmpty(),
+            item.almostFinished.toString(),
+            item.imageUri.orEmpty(),
+            item.receiptId?.toString().orEmpty(),
+            item.dateCreated.toString(),
+        ).joinToString("|")
     }
 
     fun reloadInventory() {

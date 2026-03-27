@@ -43,7 +43,8 @@ class ReceiptScanViewModel @Inject constructor(
     private var currentImagePath: String? = null
     private var currentReceiptId: Int? = null
 
-    private val pricePattern = Regex("""\$?\d+\.?\d{0,2}""")
+    private val pricedAmountPattern = Regex("""(?<!\d)(\$?\s*(?:\d{1,4}[\.,]\d{2}|[\.,]\d{2}))(?!\d)""")
+    private val dollarIntegerPattern = Regex("""\$\s*(\d{1,4})(?!\d)""")
 
     init {
         loadStores()
@@ -135,13 +136,69 @@ class ReceiptScanViewModel @Inject constructor(
             return parts.first().trim()
         }
 
-        val priceRemoved = line.replace(Regex("""\$?\d+\.?\d{0,2}\s*$"""), "").trim()
-        return priceRemoved.ifBlank { line }
+        val quantityPriceSuffixRemoved = line
+            .replace(Regex("""\s+\d+\s*[@xX]\s*\$?\s*(?:\d{1,4}[\.,]\d{2}|[\.,]\d{2})\s*$"""), "")
+            .trim()
+        val priceSuffixRemoved = quantityPriceSuffixRemoved
+            .replace(Regex("""\s+\$?\s*(?:\d{1,4}[\.,]\d{2}|[\.,]\d{2})\s*$"""), "")
+            .trim()
+
+        return priceSuffixRemoved.ifBlank { line }
     }
 
     private fun extractPrice(line: String): Float? {
-        val priceMatch = pricePattern.findAll(line).lastOrNull()
-        return priceMatch?.value?.replace("$", "")?.toFloatOrNull()
+        val normalized = normalizeLineForPrice(line)
+
+        val decimalCandidates = pricedAmountPattern.findAll(normalized)
+            .mapNotNull { parsePriceToken(it.groupValues[1]) }
+            .filter { it in 0.01f..9999f }
+            .toList()
+        if (decimalCandidates.isNotEmpty()) {
+            return decimalCandidates.last()
+        }
+
+        val dollarIntegerCandidates = dollarIntegerPattern.findAll(normalized)
+            .mapNotNull { parsePriceToken(it.groupValues[1]) }
+            .filter { it in 0.01f..9999f }
+            .toList()
+        if (dollarIntegerCandidates.isNotEmpty()) {
+            return dollarIntegerCandidates.last()
+        }
+
+        return null
+    }
+
+    private fun normalizeLineForPrice(line: String): String {
+        // Common OCR correction: O between digits is usually 0 in prices.
+        return line.replace(Regex("""(?<=\d)[oO](?=\d)"""), "0")
+    }
+
+    private fun parsePriceToken(rawToken: String): Float? {
+        var token = rawToken
+            .replace("$", "")
+            .replace(" ", "")
+
+        if (token.isBlank()) {
+            return null
+        }
+
+        token = when {
+            token.contains(',') && token.contains('.') -> {
+                if (token.lastIndexOf('.') > token.lastIndexOf(',')) {
+                    token.replace(",", "")
+                } else {
+                    token.replace(".", "").replace(',', '.')
+                }
+            }
+            token.contains(',') -> token.replace(',', '.')
+            else -> token
+        }
+
+        if (token.startsWith('.')) {
+            token = "0$token"
+        }
+
+        return token.toFloatOrNull()
     }
 
     fun toggleItemSelection(itemId: String, isSelected: Boolean) {

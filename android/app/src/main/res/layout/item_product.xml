@@ -1,10 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="12dp" android:gravity="center_vertical">
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:id="@+id/titleText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" />
-            <TextView android:id="@+id/subtitleText" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-            <TextView android:id="@+id/barcodeText" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <ImageView
+            android:id="@+id/productImageView"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="@string/product_image_preview"
+            android:scaleType="centerCrop"
+            android:src="@drawable/store_placeholder" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/subtitleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/barcodeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
         </LinearLayout>
 
         <ImageView
@@ -13,10 +49,15 @@
             android:layout_height="20dp"
             android:layout_marginEnd="8dp"
             android:contentDescription="@string/status_in_inventory"
-            android:src="@android:drawable/checkbox_on_background"
-            android:tint="@android:color/holo_green_dark"
+            android:src="@drawable/baseline_check_box_24"
             android:visibility="invisible" />
 
-        <ImageButton android:id="@+id/deleteButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@android:color/transparent" android:src="@android:drawable/ic_menu_delete" />
+        <ImageView
+            android:id="@+id/deleteButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="DeleteProduct"
+            android:src="@drawable/baseline_delete_forever_24" />
+
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

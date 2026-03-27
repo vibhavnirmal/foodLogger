@@ -87,6 +87,14 @@ class MainActivity : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
+    override fun onBackPressed() {
+        if (currentScreen == Screen.SETTINGS) {
+            goBack()
+            return
+        }
+        super.onBackPressed()
+    }
+
     fun showScreen(screen: Screen, fromNav: Boolean = false) {
         isNavigating = true
         isInProducts = false

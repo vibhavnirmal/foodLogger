@@ -110,7 +110,6 @@ class ReceiptDetailViewModel @Inject constructor(
                 if (success) {
                     _deleteSuccess.value = true
                 } else {
-                    _errorMessage.value = "Cannot delete receipt with linked items"
                     _deleteSuccess.value = false
                 }
             } catch (e: Exception) {

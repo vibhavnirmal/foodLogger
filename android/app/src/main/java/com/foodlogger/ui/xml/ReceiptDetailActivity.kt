@@ -1,5 +1,7 @@
 package com.foodlogger.ui.xml
 
+import android.app.Dialog
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -15,6 +17,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.foodlogger.R
 import com.foodlogger.databinding.ActivityReceiptDetailBinding
+import com.foodlogger.databinding.DialogReceiptImagePreviewBinding
 import com.foodlogger.domain.model.Store
 import com.foodlogger.ui.viewmodel.ReceiptDetailViewModel
 import com.foodlogger.ui.xml.adapter.ReceiptItemsAdapter
@@ -45,6 +48,7 @@ class ReceiptDetailActivity : AppCompatActivity() {
     private var originalStoreName: String = ""
     private var originalTotalAmount: String = ""
     private var originalDate: LocalDate? = null
+    private var receiptImageUri: Uri? = null
 
     companion object {
         const val EXTRA_RECEIPT_ID = "extra_receipt_id"
@@ -68,6 +72,7 @@ class ReceiptDetailActivity : AppCompatActivity() {
         setupDatePicker()
         setupButtons()
         setupObservers()
+        setupReceiptImagePreview()
 
         viewModel.loadReceipt(receiptId)
     }
@@ -158,6 +163,13 @@ class ReceiptDetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupReceiptImagePreview() {
+        binding.receiptImage.setOnClickListener {
+            showReceiptImagePreview()
+        }
+        binding.receiptImage.isEnabled = false
+    }
+
     private fun updateSaveButtonState() {
         val currentStoreName = binding.storeNameInput.text?.toString()?.trim() ?: ""
         val currentTotalAmount = binding.totalAmountInput.text?.toString()?.trim() ?: ""
@@ -201,6 +213,19 @@ class ReceiptDetailActivity : AppCompatActivity() {
                 viewModel.deleteReceipt()
             }
             .show()
+    }
+
+    private fun showReceiptImagePreview() {
+        val imageUri = receiptImageUri ?: return
+        val previewBinding = DialogReceiptImagePreviewBinding.inflate(layoutInflater)
+        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(previewBinding.root)
+        previewBinding.previewImage.setImageURI(imageUri)
+        if (previewBinding.previewImage.drawable == null) {
+            previewBinding.previewImage.setImageResource(android.R.drawable.ic_menu_gallery)
+        }
+        previewBinding.closePreviewButton.setOnClickListener { dialog.dismiss() }
+        dialog.show()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -301,10 +326,18 @@ class ReceiptDetailActivity : AppCompatActivity() {
         if (imageFile.exists()) {
             try {
                 val uri = FileProvider.getUriForFile(this, "${packageName}.provider", imageFile)
+                receiptImageUri = uri
                 binding.receiptImage.setImageURI(uri)
+                binding.receiptImage.isEnabled = true
             } catch (e: Exception) {
+                receiptImageUri = null
                 binding.receiptImage.setImageResource(android.R.drawable.ic_menu_gallery)
+                binding.receiptImage.isEnabled = false
             }
+        } else {
+            receiptImageUri = null
+            binding.receiptImage.setImageResource(android.R.drawable.ic_menu_gallery)
+            binding.receiptImage.isEnabled = false
         }
     }
 }

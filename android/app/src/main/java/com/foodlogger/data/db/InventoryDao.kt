@@ -79,6 +79,9 @@ interface InventoryDao {
     @Query("SELECT * FROM inventory WHERE receiptId = :receiptId")
     fun getInventoryByReceiptIdFlow(receiptId: Int): Flow<List<InventoryEntity>>
 
+    @Query("DELETE FROM inventory WHERE receiptId = :receiptId")
+    suspend fun deleteInventoryByReceiptId(receiptId: Int)
+
     @Query("UPDATE inventory SET boughtFromStoreId = :storeId WHERE receiptId = :receiptId")
     suspend fun updateBoughtFromStoreByReceiptId(receiptId: Int, storeId: Int?)
 }

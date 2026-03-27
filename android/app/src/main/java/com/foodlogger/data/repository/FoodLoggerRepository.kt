@@ -1,5 +1,7 @@
 package com.foodlogger.data.repository
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.room.withTransaction
 import com.foodlogger.data.db.FoodLoggerDatabase
 import com.foodlogger.data.db.InventoryEntity
@@ -42,13 +44,9 @@ class FoodLoggerRepository @Inject constructor(
                 id = product.id,
                 barcode = product.barcode,
                 name = product.name,
+                imagePath = product.imagePath,
                 brand = product.brand,
-                category = product.category,
-                servingSize = product.servingSize,
-                kcal = product.kcal,
-                protein = product.protein,
-                carbs = product.carbs,
-                fat = product.fat
+                category = product.category
             )
         )
         if (mergeByName) {
@@ -106,19 +104,16 @@ class FoodLoggerRepository @Inject constructor(
         return database.productDao().getExistingNormalizedNames(normalizedNames).toSet()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun updateProduct(product: Product) {
         database.productDao().updateProduct(
             ProductEntity(
                 id = product.id,
                 barcode = product.barcode,
                 name = product.name,
+                imagePath = product.imagePath,
                 brand = product.brand,
                 category = product.category,
-                servingSize = product.servingSize,
-                kcal = product.kcal,
-                protein = product.protein,
-                carbs = product.carbs,
-                fat = product.fat,
                 lastUpdated = LocalDateTime.now()
             )
         )
@@ -147,6 +142,7 @@ class FoodLoggerRepository @Inject constructor(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun mergeProductsByName(name: String) {
         val normalized = normalizedName(name)
         if (normalized.isBlank()) return
@@ -157,6 +153,7 @@ class FoodLoggerRepository @Inject constructor(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun mergeProductGroup(group: List<ProductEntity>) {
         if (group.size <= 1) return
 
@@ -168,13 +165,9 @@ class FoodLoggerRepository @Inject constructor(
         val mergedCanonical = canonical.copy(
             name = firstNonBlank(canonical.name, duplicates.map { it.name }) ?: canonical.name,
             barcode = firstNonBlank(canonical.barcode, duplicates.map { it.barcode }),
+            imagePath = firstNonBlank(canonical.imagePath, duplicates.map { it.imagePath }),
             brand = firstNonBlank(canonical.brand, duplicates.map { it.brand }),
             category = firstNonBlank(canonical.category, duplicates.map { it.category }),
-            servingSize = firstNonBlank(canonical.servingSize, duplicates.map { it.servingSize }),
-            kcal = canonical.kcal ?: duplicates.firstNotNullOfOrNull { it.kcal },
-            protein = canonical.protein ?: duplicates.firstNotNullOfOrNull { it.protein },
-            carbs = canonical.carbs ?: duplicates.firstNotNullOfOrNull { it.carbs },
-            fat = canonical.fat ?: duplicates.firstNotNullOfOrNull { it.fat },
             createdAt = group.minByOrNull { it.createdAt }?.createdAt ?: canonical.createdAt,
             lastUpdated = LocalDateTime.now()
         )
@@ -193,13 +186,9 @@ class FoodLoggerRepository @Inject constructor(
     private fun hasProductChanges(before: ProductEntity, after: ProductEntity): Boolean {
         return before.name != after.name ||
             before.barcode != after.barcode ||
+            before.imagePath != after.imagePath ||
             before.brand != after.brand ||
             before.category != after.category ||
-            before.servingSize != after.servingSize ||
-            before.kcal != after.kcal ||
-            before.protein != after.protein ||
-            before.carbs != after.carbs ||
-            before.fat != after.fat ||
             before.createdAt != after.createdAt
     }
 
@@ -272,6 +261,7 @@ class FoodLoggerRepository @Inject constructor(
     }
 
     // RECEIPT operations
+    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun saveReceipt(imagePath: String, dateShopped: LocalDateTime?, storeId: Int?): Int {
         val receipt = ReceiptEntity(
             imagePath = imagePath,
@@ -281,6 +271,7 @@ class FoodLoggerRepository @Inject constructor(
         return database.receiptDao().insertReceipt(receipt).toInt()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun findDuplicateReceipt(dateShopped: LocalDateTime?, storeId: Int?): ReceiptEntity? {
         if (dateShopped == null || storeId == null) return null
         return database.receiptDao().findByDateAndStore(
@@ -322,12 +313,10 @@ class FoodLoggerRepository @Inject constructor(
     }
 
     suspend fun deleteReceipt(id: Int): Boolean {
-        val inventoryDao = database.inventoryDao()
-        val linkedItems = inventoryDao.getInventoryByReceiptId(id)
-        if (linkedItems.isNotEmpty()) {
-            return false
+        database.withTransaction {
+            database.inventoryDao().deleteInventoryByReceiptId(id)
+            database.receiptDao().deleteReceipt(id)
         }
-        database.receiptDao().deleteReceipt(id)
         return true
     }
 
@@ -370,11 +359,6 @@ class FoodLoggerRepository @Inject constructor(
                     name = name,
                     brand = null,
                     category = null,
-                    servingSize = null,
-                    kcal = null,
-                    protein = null,
-                    carbs = null,
-                    fat = null
                 )
                 addProductWithInventory(
                     product = product,
@@ -464,6 +448,26 @@ class FoodLoggerRepository @Inject constructor(
 
     suspend fun deleteInventoryItem(id: Int) {
         database.inventoryDao().deleteInventoryById(id)
+    }
+
+    suspend fun restoreInventoryItem(item: InventoryItem): Long {
+        val receiptId = item.receiptId?.takeIf { database.receiptDao().getReceiptById(it) != null }
+        return database.inventoryDao().insertInventory(
+            InventoryEntity(
+                productId = item.productId,
+                quantity = item.quantity,
+                unit = item.unit,
+                dateBought = item.dateBought,
+                expiryDate = item.expiryDate,
+                storageLocation = item.storageLocation,
+                boughtFromStoreId = item.boughtFromStoreId,
+                nameOverride = item.nameOverride,
+                almostFinished = item.almostFinished,
+                imageUri = item.imageUri,
+                dateCreated = item.dateCreated,
+                receiptId = receiptId
+            )
+        )
     }
 
     // STORAGE LOCATION operations
@@ -647,13 +651,9 @@ class FoodLoggerRepository @Inject constructor(
         id = id,
         barcode = barcode,
         name = name,
+        imagePath = imagePath,
         brand = brand,
         category = category,
-        servingSize = servingSize,
-        kcal = kcal,
-        protein = protein,
-        carbs = carbs,
-        fat = fat,
         createdAt = createdAt,
         lastUpdated = lastUpdated
     )
@@ -739,13 +739,9 @@ class FoodLoggerRepository @Inject constructor(
                 Product(
                     barcode = barcode,
                     name = productName,
+                    imagePath = null,
                     brand = productJson.getStringOrNull("brands"),
-                    category = productJson.getStringOrNull("categories"),
-                    servingSize = productJson.getStringOrNull("serving_size"),
-                    kcal = productJson.getAsJsonObject("nutriments")?.getFloatOrNull("energy-kcal_100g"),
-                    protein = productJson.getAsJsonObject("nutriments")?.getFloatOrNull("proteins_100g"),
-                    carbs = productJson.getAsJsonObject("nutriments")?.getFloatOrNull("carbohydrates_100g"),
-                    fat = productJson.getAsJsonObject("nutriments")?.getFloatOrNull("fat_100g")
+                    category = productJson.getStringOrNull("categories")
                 )
             }
         }.getOrNull()

@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StoreEntity::class,
         ReceiptEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(LocalDateTimeConverter::class)
@@ -202,6 +202,21 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val cursor = db.query("PRAGMA table_info(products)")
+                val existingColumns = mutableSetOf<String>()
+                while (cursor.moveToNext()) {
+                    existingColumns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+                }
+                cursor.close()
+
+                if (!existingColumns.contains("imagePath")) {
+                    db.execSQL("ALTER TABLE products ADD COLUMN imagePath TEXT")
+                }
+            }
+        }
+
         @Volatile
         private var INSTANCE: FoodLoggerDatabase? = null
 
@@ -225,7 +240,7 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
                             db.execSQL("PRAGMA foreign_keys = ON")
                         }
                     })
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build()
                 INSTANCE = instance
                 instance

@@ -1,11 +1,18 @@
 package com.foodlogger.ui.xml
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.graphics.PointF
+import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -35,6 +42,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 @AndroidEntryPoint
 class ReceiptReviewActivity : AppCompatActivity() {
@@ -45,6 +53,8 @@ class ReceiptReviewActivity : AppCompatActivity() {
     private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private var storeAdapter: ArrayAdapter<String>? = null
     private var stores: List<Store> = emptyList()
+    private var currentImageUri: Uri? = null
+    private var activeOcrBoundingBox: NormalizedBoundingBox? = null
 
     companion object {
         const val EXTRA_IMAGE_URI = "extra_image_uri"
@@ -67,6 +77,7 @@ class ReceiptReviewActivity : AppCompatActivity() {
         }
         
         val imageUri = Uri.parse(imageUriString)
+        currentImageUri = imageUri
         
         if (imagePath != null) {
             viewModel.setImagePath(imagePath)
@@ -79,6 +90,16 @@ class ReceiptReviewActivity : AppCompatActivity() {
         setupButtons()
         setupObservers()
         processImage(imageUri)
+    }
+
+    fun onOcrBoundingBoxSelected(boundingBox: NormalizedBoundingBox) {
+        activeOcrBoundingBox = boundingBox
+        currentImageUri?.let { processImage(it, boundingBox) }
+    }
+
+    fun resetOcrBoundingBox() {
+        activeOcrBoundingBox = null
+        currentImageUri?.let { processImage(it, null) }
     }
 
     private fun setupToolbar() {
@@ -221,9 +242,9 @@ class ReceiptReviewActivity : AppCompatActivity() {
         }
     }
 
-    private fun processImage(imageUri: Uri) {
+    private fun processImage(imageUri: Uri, boundingBox: NormalizedBoundingBox? = activeOcrBoundingBox) {
         try {
-            val image = InputImage.fromFilePath(this, imageUri)
+            val image = createInputImage(imageUri, boundingBox)
             textRecognizer.process(image)
                 .addOnSuccessListener { visionText ->
                     val text = visionText.text
@@ -241,10 +262,49 @@ class ReceiptReviewActivity : AppCompatActivity() {
         }
     }
 
+    private fun createInputImage(imageUri: Uri, boundingBox: NormalizedBoundingBox?): InputImage {
+        if (boundingBox == null) {
+            return InputImage.fromFilePath(this, imageUri)
+        }
+
+        val bitmap = contentResolver.openInputStream(imageUri)?.use { input ->
+            BitmapFactory.decodeStream(input)
+        } ?: return InputImage.fromFilePath(this, imageUri)
+
+        val croppedBitmap = cropBitmapToBoundingBox(bitmap, boundingBox) ?: bitmap
+        return InputImage.fromBitmap(croppedBitmap, 0)
+    }
+
+    private fun cropBitmapToBoundingBox(bitmap: Bitmap, boundingBox: NormalizedBoundingBox): Bitmap? {
+        if (boundingBox.width() < 0.01f || boundingBox.height() < 0.01f) {
+            return null
+        }
+
+        val left = (boundingBox.left * bitmap.width).roundToInt().coerceIn(0, bitmap.width - 1)
+        val top = (boundingBox.top * bitmap.height).roundToInt().coerceIn(0, bitmap.height - 1)
+        val right = (boundingBox.right * bitmap.width).roundToInt().coerceIn(left + 1, bitmap.width)
+        val bottom = (boundingBox.bottom * bitmap.height).roundToInt().coerceIn(top + 1, bitmap.height)
+
+        val width = (right - left).coerceAtLeast(1)
+        val height = (bottom - top).coerceAtLeast(1)
+
+        return runCatching { Bitmap.createBitmap(bitmap, left, top, width, height) }.getOrNull()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         textRecognizer.close()
     }
+}
+
+data class NormalizedBoundingBox(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
+) {
+    fun width(): Float = right - left
+    fun height(): Float = bottom - top
 }
 
 class ReceiptPagerAdapter(
@@ -266,6 +326,7 @@ class ReceiptPagerAdapter(
 class ImagePageFragment : Fragment() {
     private var _binding: PageReceiptImageBinding? = null
     private val binding get() = _binding!!
+    private var firstTapPoint: PointF? = null
 
     companion object {
         private const val ARG_IMAGE_URI = "arg_image_uri"
@@ -287,6 +348,75 @@ class ImagePageFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val uri = Uri.parse(arguments?.getString(ARG_IMAGE_URI))
         binding.receiptImage.setImageURI(uri)
+        setupBoundingBoxSelection()
+    }
+
+    private fun setupBoundingBoxSelection() {
+        binding.ocrSelectionOverlay.setOnTouchListener { _, event ->
+            if (event.action != MotionEvent.ACTION_UP) {
+                return@setOnTouchListener true
+            }
+
+            val imageRect = getImageContentRect() ?: return@setOnTouchListener true
+            if (!imageRect.contains(event.x, event.y)) {
+                Toast.makeText(requireContext(), getString(R.string.ocr_bbox_invalid_tap), Toast.LENGTH_SHORT).show()
+                return@setOnTouchListener true
+            }
+
+            val tappedPoint = PointF(event.x, event.y)
+            if (firstTapPoint == null || binding.ocrSelectionOverlay.hasCompleteSelection()) {
+                firstTapPoint = tappedPoint
+                binding.ocrSelectionOverlay.setStartPoint(tappedPoint)
+                return@setOnTouchListener true
+            }
+
+            binding.ocrSelectionOverlay.setEndPoint(tappedPoint)
+            val selection = binding.ocrSelectionOverlay.getSelectionRect()
+            if (selection != null) {
+                val normalized = selection.toNormalizedBoundingBox(imageRect)
+                if (normalized.width() >= 0.01f && normalized.height() >= 0.01f) {
+                    (activity as? ReceiptReviewActivity)?.onOcrBoundingBoxSelected(normalized)
+                }
+            }
+            firstTapPoint = null
+            true
+        }
+
+        binding.resetOcrAreaButton.setOnClickListener {
+            firstTapPoint = null
+            binding.ocrSelectionOverlay.clearSelection()
+            (activity as? ReceiptReviewActivity)?.resetOcrBoundingBox()
+        }
+    }
+
+    private fun getImageContentRect(): RectF? {
+        val drawable = binding.receiptImage.drawable ?: return null
+        val values = FloatArray(9)
+        binding.receiptImage.imageMatrix.getValues(values)
+
+        val scaleX = values[Matrix.MSCALE_X]
+        val scaleY = values[Matrix.MSCALE_Y]
+        val transX = values[Matrix.MTRANS_X]
+        val transY = values[Matrix.MTRANS_Y]
+
+        val width = drawable.intrinsicWidth * scaleX
+        val height = drawable.intrinsicHeight * scaleY
+
+        return RectF(transX, transY, transX + width, transY + height)
+    }
+
+    private fun RectF.toNormalizedBoundingBox(imageRect: RectF): NormalizedBoundingBox {
+        val normalizedLeft = ((left - imageRect.left) / imageRect.width()).coerceIn(0f, 1f)
+        val normalizedTop = ((top - imageRect.top) / imageRect.height()).coerceIn(0f, 1f)
+        val normalizedRight = ((right - imageRect.left) / imageRect.width()).coerceIn(0f, 1f)
+        val normalizedBottom = ((bottom - imageRect.top) / imageRect.height()).coerceIn(0f, 1f)
+
+        return NormalizedBoundingBox(
+            left = minOf(normalizedLeft, normalizedRight),
+            top = minOf(normalizedTop, normalizedBottom),
+            right = maxOf(normalizedLeft, normalizedRight),
+            bottom = maxOf(normalizedTop, normalizedBottom)
+        )
     }
 
     override fun onDestroyView() {

@@ -12,6 +12,9 @@
     <string name="action_add_item">Add Item</string>
     <string name="action_add_recipe">Add Recipe</string>
     <string name="action_retry">Retry</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_allow_once">Allow once</string>
+    <string name="action_allow_session">Allow for this session</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_save">Save</string>
     <string name="action_close">Close</string>
@@ -23,6 +26,11 @@
     <string name="action_add_product_inventory">Add Product and Inventory</string>
     <string name="action_add_location">Add Location</string>
     <string name="action_add_store">Add Store</string>
+    <string name="action_add_to_shopping_list">Add to Shopping List</string>
+    <string name="action_remove_from_shopping_list">Remove from Shopping List</string>
+    <string name="action_add_to_list_short">Add to list</string>
+    <string name="action_added_short">Added</string>
+    <string name="action_clear_shopped_items">Clear shopped items</string>
     <string name="action_rename_location">Rename Location</string>
     <string name="action_rename_store">Rename Store</string>
     <string name="action_delete_location">Delete Location</string>
@@ -40,6 +48,8 @@
     <string name="label_storage_location">Storage Location</string>
     <string name="label_bought_from">Bought From</string>
     <string name="label_store_image">Store image</string>
+    <string name="label_item_image">Item image</string>
+    <string name="label_shopped_item">Shopped item</string>
     <string name="settings_storage_locations">Storage Locations</string>
     <string name="settings_stores">Stores</string>
     <string name="label_display_name_override">Display Name Override</string>
@@ -86,6 +96,9 @@
     <string name="validation_required_barcode">Barcode is required</string>
     <string name="validation_required_product">Choose a product</string>
     <string name="validation_required_name">Product name is required</string>
+    <string name="action_select_image">Select Image</string>
+    <string name="action_remove_image">Remove Image</string>
+    <string name="product_image_preview">Product image preview</string>
     <string name="validation_required_location_name">Location name is required</string>
     <string name="validation_required_store_name">Store name is required</string>
     <string name="validation_required_recipe_name">Recipe name is required</string>
@@ -106,6 +119,8 @@
     <string name="hint_store_name">e.g. Walmart, Costco</string>
     <string name="confirm_delete_location">Delete "%1$s"?</string>
     <string name="confirm_delete_store">Delete store "%1$s"?</string>
+    <string name="confirm_delete_product">Delete product?</string>
+    <string name="confirm_delete_product_message">You are about to delete "%1$s".</string>
     <string name="no_image_selected">No image selected</string>
     <string name="action_cook_recipe">Cook This Recipe</string>
     <string name="action_cooked_success">Cooked %1$d ingredients from inventory</string>
@@ -125,6 +140,17 @@
     <string name="label_total_amount">Total Amount</string>
     <string name="items_from_receipt">Items from this receipt</string>
     <string name="confirm_delete_receipt">Delete this receipt?</string>
-    <string name="confirm_delete_receipt_message">This action cannot be undone.</string>
+    <string name="confirm_delete_receipt_message">This will also remove inventory items linked to this receipt. This action cannot be undone.</string>
+    <string name="receipt_image_preview">Receipt image preview</string>
+    <string name="action_close_preview">Close preview</string>
+    <string name="confirm_remove_inventory_item">Remove this item?</string>
+    <string name="confirm_remove_inventory_item_message">You are about to remove %1$s from inventory.</string>
+    <string name="inventory_item_removed">Item removed</string>
+    <string name="shopping_list_added">Added to shopping list</string>
+    <string name="shopping_list_removed">Removed from shopping list</string>
+    <string name="shopping_list_already_added">Already in shopping list</string>
     <string name="no_items_linked">No items linked to this receipt</string>
+    <string name="ocr_bbox_instruction">Tap top-left, then bottom-right to select OCR area</string>
+    <string name="ocr_bbox_reset">Use Full Image</string>
+    <string name="ocr_bbox_invalid_tap">Tap inside the receipt image area</string>
 </resources>

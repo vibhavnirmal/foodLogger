@@ -2,6 +2,7 @@ package com.foodlogger.ui.xml
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -30,6 +31,9 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 
 @AndroidEntryPoint
@@ -42,6 +46,12 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
     private var inInventoryProductIds: Set<Int> = emptySet()
     private val scanExecutor = Executors.newSingleThreadExecutor()
     private var pendingScanAction: (() -> Unit)? = null
+    private var pendingImageResult: ((Uri?) -> Unit)? = null
+
+    private val productImagePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        pendingImageResult?.invoke(uri)
+        pendingImageResult = null
+    }
 
     private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -58,7 +68,7 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
 
         adapter = ProductAdapter(
             onClick = ::showEditDialog,
-            onDelete = { product -> viewModel.deleteProductById(product.id) },
+            onDelete = ::showDeleteConfirmation,
             getStoreName = { productId -> storeNameByProductId[productId] },
             isInInventory = { productId -> inInventoryProductIds.contains(productId) },
         )
@@ -112,6 +122,30 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
         dialogBinding.brandInputEdit.setText(product.brand.orEmpty())
         dialogBinding.categoryInputEdit.setText(product.category.orEmpty())
         dialogBinding.barcodeInputEdit.setText(product.barcode.orEmpty())
+        var selectedImagePath: String? = product.imagePath
+        updateProductImagePreview(dialogBinding, selectedImagePath)
+
+        dialogBinding.selectProductImageButton.setOnClickListener {
+            pendingImageResult = imageResult@{ uri ->
+                if (uri == null) {
+                    return@imageResult
+                }
+                val persistedPath = copyProductImageToInternalStorage(uri)
+                if (persistedPath == null) {
+                    Toast.makeText(requireContext(), getString(R.string.no_image_selected), Toast.LENGTH_SHORT).show()
+                } else {
+                    selectedImagePath = persistedPath
+                    updateProductImagePreview(dialogBinding, selectedImagePath)
+                }
+            }
+            productImagePickerLauncher.launch("image/*")
+        }
+
+        dialogBinding.clearProductImageButton.setOnClickListener {
+            selectedImagePath = null
+            updateProductImagePreview(dialogBinding, selectedImagePath)
+        }
+
         dialogBinding.barcodeInputLayout.setEndIconOnClickListener {
             requestBarcodeScan { scanned ->
                 dialogBinding.barcodeInputEdit.setText(scanned)
@@ -136,6 +170,7 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
                             product.copy(
                                 barcode = normalizeBarcode(dialogBinding.barcodeInputEdit.text?.toString()),
                                 name = name,
+                                imagePath = selectedImagePath,
                                 brand = dialogBinding.brandInputEdit.text?.toString()?.trim()?.ifEmpty { null },
                                 category = dialogBinding.categoryInputEdit.text?.toString()?.trim()?.ifEmpty { null },
                             )
@@ -145,6 +180,34 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
                 }
                 dialog.show()
             }
+    }
+
+    private fun updateProductImagePreview(binding: DialogProductEditBinding, imagePath: String?) {
+        val file = imagePath?.let { File(it) }
+        if (file != null && file.exists()) {
+            binding.productImagePreview.setImageURI(Uri.fromFile(file))
+        } else {
+            binding.productImagePreview.setImageResource(R.drawable.store_placeholder)
+        }
+    }
+
+    private fun copyProductImageToInternalStorage(sourceUri: Uri): String? {
+        return runCatching {
+            val productImagesDir = File(requireContext().filesDir, "product_images")
+            if (!productImagesDir.exists()) {
+                productImagesDir.mkdirs()
+            }
+            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+            val targetFile = File(productImagesDir, "product_${timestamp}_${System.currentTimeMillis()}.jpg")
+
+            requireContext().contentResolver.openInputStream(sourceUri)?.use { input ->
+                targetFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return null
+
+            targetFile.absolutePath
+        }.getOrNull()
     }
 
     private fun requestBarcodeScan(onScanned: (String) -> Unit) {
@@ -228,6 +291,17 @@ class ProductFragment : Fragment(R.layout.fragment_products) {
         }
         val digitsOnly = raw.filter { it.isDigit() }
         return if (digitsOnly.isNotEmpty()) digitsOnly else raw
+    }
+
+    private fun showDeleteConfirmation(product: Product) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.confirm_delete_product)
+            .setMessage(getString(R.string.confirm_delete_product_message, product.name))
+            .setNegativeButton(R.string.action_cancel, null)
+            .setPositiveButton(R.string.action_delete) { _, _ ->
+                viewModel.deleteProductById(product.id)
+            }
+            .show()
     }
 
     override fun onDestroyView() {

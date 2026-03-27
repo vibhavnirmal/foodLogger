@@ -21,13 +21,15 @@ class WishlistFragment : Fragment(R.layout.fragment_wishlist) {
     private val binding get() = _binding!!
     private val viewModel: WishlistViewModel by viewModels()
     private lateinit var adapter: WishlistAdapter
+    private var checkedItemIds: Set<Int> = emptySet()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentWishlistBinding.bind(view)
 
         adapter = WishlistAdapter(
-            onMarkFinished = { item -> viewModel.markAsFinished(item.id) },
+            onToggleChecked = { item -> viewModel.toggleItemChecked(item.id) },
+            isChecked = { id -> checkedItemIds.contains(id) },
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
@@ -44,6 +46,12 @@ class WishlistFragment : Fragment(R.layout.fragment_wishlist) {
                 }
                 launch {
                     viewModel.isLoading.collect { binding.progressBar.visibility = if (it) View.VISIBLE else View.GONE }
+                }
+                launch {
+                    viewModel.checkedItemIds.collect { checkedIds ->
+                        checkedItemIds = checkedIds
+                        adapter.notifyDataSetChanged()
+                    }
                 }
                 launch {
                     viewModel.errorMessage.collect { error ->

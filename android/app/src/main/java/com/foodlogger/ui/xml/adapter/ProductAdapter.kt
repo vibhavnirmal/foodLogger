@@ -1,13 +1,16 @@
 package com.foodlogger.ui.xml.adapter
 
+import android.net.Uri
 import android.view.View
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.foodlogger.R
 import com.foodlogger.databinding.ItemProductBinding
 import com.foodlogger.domain.model.Product
+import java.io.File
 
 class ProductAdapter(
     private val onClick: (Product) -> Unit,
@@ -31,8 +34,17 @@ class ProductAdapter(
         fun bind(product: Product) {
             val inInventory = isInInventory(product.id)
             binding.titleText.text = product.name
-            binding.subtitleText.text = listOfNotNull(product.brand, product.category).joinToString(" • ").ifBlank { product.barcode ?: "No barcode" }
-            binding.barcodeText.text = getStoreName(product.id) ?: "Unknown store"
+            binding.subtitleText.text = listOfNotNull(product.brand, product.category).joinToString(" • ").ifBlank { product.barcode ?: "" }
+            binding.barcodeText.text = getStoreName(product.id) ?: ""
+            val imageFile = product.imagePath?.let { File(it) }
+            if (imageFile != null && imageFile.exists()) {
+                binding.productImageView.setImageURI(Uri.fromFile(imageFile))
+                if (binding.productImageView.drawable == null) {
+                    binding.productImageView.setImageResource(R.drawable.store_placeholder)
+                }
+            } else {
+                binding.productImageView.setImageResource(R.drawable.store_placeholder)
+            }
             binding.inventoryStatusIcon.visibility = if (inInventory) View.VISIBLE else View.INVISIBLE
             binding.inventoryStatusIcon.contentDescription = binding.root.context.getString(
                 if (inInventory) com.foodlogger.R.string.status_in_inventory else com.foodlogger.R.string.status_not_in_inventory

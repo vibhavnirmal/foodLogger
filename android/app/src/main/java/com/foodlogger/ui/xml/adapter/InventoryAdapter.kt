@@ -1,6 +1,5 @@
 package com.foodlogger.ui.xml.adapter
 
-import android.content.res.ColorStateList
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -17,7 +16,7 @@ import com.foodlogger.ui.xml.formatQuantity
 
 class InventoryAdapter(
     private val onClick: (InventoryItem) -> Unit,
-    private val onDelete: (InventoryItem) -> Unit,
+    private val onAddToShoppingList: (InventoryItem) -> Unit,
     private val onReceiptClick: ((InventoryItem) -> Unit)? = null,
 ) : ListAdapter<InventoryItem, InventoryAdapter.InventoryViewHolder>(DiffCallback) {
 
@@ -36,8 +35,16 @@ class InventoryAdapter(
         fun bind(item: InventoryItem) {
             val context = binding.root.context
             binding.titleText.text = item.displayName()
-            binding.quantityText.text = item.quantity.formatQuantity()
-            binding.unitText.text = item.unit
+            val actionIconRes = if (item.almostFinished) {
+                R.drawable.baseline_check_box_24
+            } else {
+                R.drawable.baseline_add_shopping_cart_24
+            }
+            binding.shoppingCart.setIconResource(actionIconRes)
+            binding.shoppingCart.contentDescription = context.getString(
+                if (item.almostFinished) R.string.action_remove_from_shopping_list else R.string.action_add_to_shopping_list
+            )
+            binding.shoppingCart.isEnabled = true
             
             // Handle expiry display
             val hasExpiry = item.expiryDate != null
@@ -50,21 +57,19 @@ class InventoryAdapter(
 
             // Set expiry status chip (only for items with expiry)
             if (hasExpiry) {
-                binding.expiryStatusChip.visibility = android.view.View.VISIBLE
-                val (statusText, chipColor) = when (item.expiryStatus) {
+                val borderColor = when (item.expiryStatus) {
                     ExpiryStatus.GOOD -> context.getString(R.string.status_good) to R.color.expiry_good
                     ExpiryStatus.EXPIRING_SOON -> context.getString(R.string.status_expiring_soon) to R.color.expiry_expiring_soon
                     ExpiryStatus.EXPIRED -> context.getString(R.string.status_expired) to R.color.expiry_expired
-                }
-                binding.expiryStatusChip.text = statusText
-                binding.expiryStatusChip.setChipBackgroundColor(ColorStateList.valueOf(ContextCompat.getColor(context, chipColor)))
-                binding.expiryStatusChip.setTextColor(ContextCompat.getColor(context, R.color.white))
+                }.second
+                binding.expiryLeftBorder.visibility = android.view.View.VISIBLE
+                binding.expiryLeftBorder.setBackgroundColor(ContextCompat.getColor(context, borderColor))
             } else {
-                binding.expiryStatusChip.visibility = android.view.View.GONE
+                binding.expiryLeftBorder.visibility = android.view.View.GONE
             }
             
-            // Show item image first, fall back to store image, then initial
-            bindItemImage(item.imageUri, item.boughtFromStoreImageUri, item.boughtFromStoreName)
+            // Show item image, otherwise fallback to the first letter of item name.
+            bindItemImage(item.imageUri, item.displayName())
 
             // Show receipt icon if item has a receipt
             binding.receiptIcon.visibility = if (item.hasReceipt() && onReceiptClick != null) {
@@ -80,11 +85,11 @@ class InventoryAdapter(
             }
 
             binding.root.setOnClickListener { onClick(item) }
-            binding.deleteButton.setOnClickListener { onDelete(item) }
+            binding.shoppingCart.setOnClickListener { onAddToShoppingList(item) }
         }
 
-        private fun bindItemImage(itemImageUri: String?, storeImageUri: String?, storeName: String?) {
-            // Priority 1: Item's uploaded image
+        private fun bindItemImage(itemImageUri: String?, itemName: String) {
+            // Priority 1: Item's uploaded image.
             if (!itemImageUri.isNullOrBlank()) {
                 binding.storeImageView.setImageURI(Uri.parse(itemImageUri))
                 if (binding.storeImageView.drawable != null) {
@@ -94,29 +99,8 @@ class InventoryAdapter(
                 }
             }
 
-            // Priority 2: Store's image
-            if (!storeImageUri.isNullOrBlank()) {
-                if (storeImageUri.startsWith("android.resource://")) {
-                    val resName = storeImageUri.substringAfterLast('/')
-                    val resId = binding.root.context.resources.getIdentifier(resName, "drawable", binding.root.context.packageName)
-                    if (resId != 0) {
-                        binding.storeImageView.setImageResource(resId)
-                        binding.storeImageView.visibility = android.view.View.VISIBLE
-                        binding.storeInitialText.visibility = android.view.View.GONE
-                        return
-                    }
-                }
-
-                binding.storeImageView.setImageURI(Uri.parse(storeImageUri))
-                if (binding.storeImageView.drawable != null) {
-                    binding.storeImageView.visibility = android.view.View.VISIBLE
-                    binding.storeInitialText.visibility = android.view.View.GONE
-                    return
-                }
-            }
-
-            // Priority 3: Store initial
-            val initial = storeName?.trim()?.firstOrNull()?.toString()?.uppercase().orEmpty().ifEmpty { "?" }
+            // Priority 2: Fallback to the first letter of item name.
+            val initial = itemName.trim().firstOrNull()?.toString()?.uppercase().orEmpty().ifEmpty { "?" }
             binding.storeInitialText.text = initial
             binding.storeImageView.visibility = android.view.View.GONE
             binding.storeInitialText.visibility = android.view.View.VISIBLE

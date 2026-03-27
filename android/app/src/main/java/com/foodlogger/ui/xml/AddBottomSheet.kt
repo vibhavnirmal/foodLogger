@@ -125,12 +125,7 @@ class AddBottomSheet : BottomSheetDialogFragment() {
                 barcode = null,
                 name = productName,
                 brand = brand,
-                category = null,
-                servingSize = null,
-                kcal = null,
-                protein = null,
-                carbs = null,
-                fat = null
+                category = null
             )
         } else {
             selectedProduct

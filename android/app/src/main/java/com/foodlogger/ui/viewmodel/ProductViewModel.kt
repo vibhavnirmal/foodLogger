@@ -133,12 +133,7 @@ class ProductViewModel @Inject constructor(
                     barcode = barcode,
                     name = name,
                     brand = brand,
-                    category = category,
-                    servingSize = null,
-                    kcal = kcal,
-                    protein = protein,
-                    carbs = carbs,
-                    fat = fat
+                    category = category
                 )
             )
         } catch (e: Exception) {

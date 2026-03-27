@@ -10,13 +10,24 @@
     app:cardCornerRadius="12dp"
     app:cardBackgroundColor="?attr/colorSurface">
 
-    <LinearLayout
-        android:id="@+id/itemContainer"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical">
+        android:layout_height="wrap_content">
+
+        <View
+            android:id="@+id/expiryLeftBorder"
+            android:layout_width="6dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/itemContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
 
         <!-- Store Icon/Initial -->
         <com.google.android.material.card.MaterialCardView
@@ -35,7 +46,7 @@
                     android:id="@+id/storeImageView"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:contentDescription="@string/label_store_image"
+                    android:contentDescription="@string/label_item_image"
                     android:scaleType="centerCrop"
                     android:visibility="gone" />
 
@@ -75,24 +86,8 @@
                     android:maxLines="1"
                     android:ellipsize="end" />
 
-                <TextView
-                    android:id="@+id/quantityText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:textAppearance="?attr/textAppearanceTitleMedium"
-                    android:textColor="?attr/colorPrimary"
-                    android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- Unit -->
-            <TextView
-                android:id="@+id/unitText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:textColor="?attr/colorOnSurfaceVariant" />
 
             <!-- Expiry and Bought From Row -->
             <LinearLayout
@@ -115,9 +110,9 @@
                     android:layout_height="16dp"
                     android:layout_marginEnd="4dp"
                     android:src="@android:drawable/ic_menu_recent_history"
-                    android:tint="?attr/colorPrimary"
                     android:visibility="gone"
-                    android:contentDescription="From receipt" />
+                    android:contentDescription="From receipt"
+                    app:tint="?attr/colorPrimary" />
 
                 <TextView
                     android:id="@+id/boughtFromText"
@@ -129,7 +124,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Action Buttons Column -->
+        <!-- Action Button -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -137,30 +132,17 @@
             android:gravity="end"
             android:layout_marginStart="8dp">
 
-            <!-- Expiry Status Chip -->
-            <com.google.android.material.chip.Chip
-                android:id="@+id/expiryStatusChip"
-                style="@style/Widget.Material3.Chip.Assist"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="Good"
-                android:textAppearance="?attr/textAppearanceLabelSmall"
-                android:textColor="@color/white"
-                app:chipMinHeight="28dp"
-                app:chipCornerRadius="16dp"
-                app:chipStrokeWidth="0dp" />
-
-            <!-- Delete Button -->
+            <!-- Add to Shopping List Button -->
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/deleteButton"
+                android:id="@+id/shoppingCart"
                 style="@style/Widget.Material3.Button.IconButton"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_marginTop="4dp"
-                android:contentDescription="@string/action_delete"
-                app:icon="@android:drawable/ic_menu_delete"
+                android:contentDescription="@string/action_add_to_shopping_list"
+                app:icon="@drawable/baseline_add_shopping_cart_24"
                 app:iconTint="?attr/colorOnSurfaceVariant"
                 app:iconSize="20dp" />
         </LinearLayout>
     </LinearLayout>
+</FrameLayout>
 </com.google.android.material.card.MaterialCardView>

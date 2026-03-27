@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
@@ -11,6 +12,47 @@
         android:scaleType="fitCenter"
         android:adjustViewBounds="true"
         android:contentDescription="Receipt image" />
+
+    <com.foodlogger.ui.xml.view.OcrSelectionOverlayView
+        android:id="@+id/ocrSelectionOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/ocrHintText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="#90000000"
+            android:padding="8dp"
+            android:text="@string/ocr_bbox_instruction"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@android:color/white" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/resetOcrAreaButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#90000000"
+                android:text="@string/ocr_bbox_reset"
+                android:textColor="@android:color/white"
+                app:icon="@android:drawable/ic_menu_revert"
+                app:iconTint="@android:color/white" />
+        </LinearLayout>
+    </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"

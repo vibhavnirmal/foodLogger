@@ -35,6 +35,14 @@
         android:layout_height="1dp"
         android:background="?attr/colorOutlineVariant" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/clearShoppedButton"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/action_clear_shopped_items"
+        android:enabled="false" />
+
     <!-- Error State -->
     <LinearLayout
         android:id="@+id/errorGroup"

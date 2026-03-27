@@ -7,9 +7,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.foodlogger.R
 import com.foodlogger.databinding.FragmentShoppingListBinding
 import com.foodlogger.ui.viewmodel.WishlistViewModel
@@ -23,57 +21,57 @@ class ShoppingListFragment : Fragment(R.layout.fragment_shopping_list) {
     private val binding get() = _binding!!
     private val viewModel: WishlistViewModel by viewModels()
     private lateinit var adapter: WishlistAdapter
+    private var latestItemsEmpty: Boolean = true
+    private var checkedItemIds: Set<Int> = emptySet()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentShoppingListBinding.bind(view)
 
         adapter = WishlistAdapter(
-            onMarkFinished = { item -> viewModel.markAsFinished(item.id) },
+            onToggleChecked = { item -> viewModel.toggleItemChecked(item.id) },
+            isChecked = { id -> checkedItemIds.contains(id) },
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
-        
-        setupSwipeToDelete()
+
+        binding.clearShoppedButton.setOnClickListener {
+            viewModel.clearShoppedItems()
+        }
         binding.retryButton.setOnClickListener { viewModel.reloadWishlist() }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.almostFinishedItems.collect { items ->
+                        latestItemsEmpty = items.isEmpty()
                         adapter.submitList(items)
                         binding.headerText.text = "${items.size} items to buy"
-                        updateUiState(items.isEmpty())
+                        updateUiState(latestItemsEmpty)
+                    }
+                }
+                launch {
+                    viewModel.checkedItemIds.collect { checkedIds ->
+                        checkedItemIds = checkedIds
+                        binding.clearShoppedButton.isEnabled = checkedIds.isNotEmpty()
+                        adapter.notifyDataSetChanged()
                     }
                 }
                 launch {
                     viewModel.isLoading.collect { isLoading ->
                         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+                        updateUiState(latestItemsEmpty)
                     }
                 }
                 launch {
                     viewModel.errorMessage.collect { error ->
                         binding.errorGroup.visibility = if (error != null) View.VISIBLE else View.GONE
                         binding.errorText.text = error
+                        updateUiState(latestItemsEmpty)
                     }
                 }
             }
         }
-    }
-
-    private fun setupSwipeToDelete() {
-        val swipeCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
-            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
-
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val position = viewHolder.bindingAdapterPosition
-                val item = adapter.currentList.getOrNull(position) ?: return
-                viewLifecycleOwner.lifecycleScope.launch {
-                    viewModel.deleteItem(item.id)
-                }
-            }
-        }
-        ItemTouchHelper(swipeCallback).attachToRecyclerView(binding.recyclerView)
     }
 
     private fun updateUiState(isEmpty: Boolean) {

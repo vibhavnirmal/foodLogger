@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
-        app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+        app:navigationIcon="@drawable/ic_close"
         app:title="@string/action_add_item"
         app:titleTextColor="?attr/colorOnSurface" />
 
@@ -61,7 +61,7 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@android:drawable/ic_menu_camera"
+                            android:src="@drawable/baseline_camera_alt_24"
                             android:tint="?attr/colorOnSurfaceVariant"
                             android:contentDescription="Add photo" />
 
@@ -159,45 +159,6 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- Quantity and Unit Row -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="16dp">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/quantityInputLayout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
-                    android:hint="@string/label_quantity">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/quantityInputEdit"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="numberDecimal"
-                        android:text="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/unitInputLayout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="@string/label_unit">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/unitInputEdit"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:text="unit" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
             <!-- Expiry Date -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/expiryInputLayout"
@@ -207,7 +168,7 @@
                 android:layout_marginTop="16dp"
                 android:hint="@string/label_expiry_date"
                 app:endIconMode="custom"
-                app:endIconDrawable="@android:drawable/ic_menu_my_calendar">
+                app:endIconDrawable="@drawable/baseline_calendar_month_24">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/expiryInputEdit"
                     android:layout_width="match_parent"
@@ -225,7 +186,7 @@
                 android:layout_marginTop="16dp"
                 android:hint="@string/label_date_bought"
                 app:endIconMode="custom"
-                app:endIconDrawable="@android:drawable/ic_menu_my_calendar">
+                app:endIconDrawable="@drawable/baseline_calendar_month_24">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/dateBoughtInputEdit"
                     android:layout_width="match_parent"

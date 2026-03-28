@@ -31,9 +31,6 @@ class BarcodeViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    private val _quantity = MutableStateFlow(1.0f)
-    val quantity: StateFlow<Float> = _quantity.asStateFlow()
-
     private val _expiryDate = MutableStateFlow<LocalDateTime?>(null)
     val expiryDate: StateFlow<LocalDateTime?> = _expiryDate.asStateFlow()
 
@@ -127,10 +124,6 @@ class BarcodeViewModel @Inject constructor(
         }
     }
 
-    fun setQuantity(q: Float) {
-        _quantity.value = q
-    }
-
     fun setExpiryDate(date: LocalDateTime?) {
         _expiryDate.value = date
     }
@@ -172,8 +165,6 @@ class BarcodeViewModel @Inject constructor(
         try {
             repository.addInventoryItem(
                 productId = product.id,
-                quantity = _quantity.value,
-                unit = "unit",
                 dateBought = _dateBought.value ?: LocalDateTime.now(),
                 expiryDate = _expiryDate.value,
                 storageLocation = _storageLocation.value.trim().ifEmpty { null },
@@ -201,8 +192,6 @@ class BarcodeViewModel @Inject constructor(
             )
             repository.addProductWithInventory(
                 product = product,
-                quantity = _quantity.value,
-                unit = "unit",
                 dateBought = _dateBought.value ?: LocalDateTime.now(),
                 expiryDate = _expiryDate.value,
                 storageLocation = _storageLocation.value.trim().ifEmpty { null },
@@ -244,7 +233,6 @@ class BarcodeViewModel @Inject constructor(
     private fun resetForm() {
         _scannedBarcode.value = null
         _product.value = null
-        _quantity.value = 1.0f
         _expiryDate.value = null
         _expiryDateInput.value = ""
         _dateBought.value = null

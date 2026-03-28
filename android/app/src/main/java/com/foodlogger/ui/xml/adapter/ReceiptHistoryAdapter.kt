@@ -15,7 +15,8 @@ import java.time.format.DateTimeFormatter
 
 class ReceiptHistoryAdapter(
     private val onReceiptClick: (ReceiptEntity) -> Unit,
-    private val getStoreName: ((Int?) -> String?) = { null }
+    private val getStoreName: ((Int?) -> String?) = { null },
+    private val getItemCount: ((Int) -> Int) = { 0 }
 ) : ListAdapter<ReceiptEntity, ReceiptHistoryAdapter.ReceiptViewHolder>(DiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ReceiptViewHolder {
@@ -42,7 +43,15 @@ class ReceiptHistoryAdapter(
             val storeName = getStoreName(receipt.storeId)
             binding.receiptStore.text = storeName ?: "Unknown Store"
 
-            binding.receiptItemCount.text = "Scanned: ${receipt.dateScanned.format(dateFormatter)}"
+            val itemCount = if (receipt.id > 0) getItemCount(receipt.id) else 0
+            binding.receiptItemCount.text = if (itemCount > 0) "$itemCount items" else ""
+
+            val amount = receipt.totalAmount
+            if (amount != null && amount > 0) {
+                binding.receiptAmount.text = "$${String.format("%.2f", amount)}"
+            } else {
+                binding.receiptAmount.text = ""
+            }
 
             val imageFile = File(receipt.imagePath)
             if (imageFile.exists()) {

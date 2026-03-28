@@ -31,6 +31,4 @@ data class RecipeIngredientEntity(
     val id: Int = 0,
     val recipeId: Int,
     val productId: Int,
-    val quantity: Float = 1.0f,
-    val unit: String = "unit",
 )

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -35,6 +36,7 @@ class ReceiptCaptureActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityReceiptCaptureBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setupSystemUI()
 
         binding.grantPermissionButton.setOnClickListener {
             permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -56,6 +58,17 @@ class ReceiptCaptureActivity : AppCompatActivity() {
                 permissionLauncher.launch(Manifest.permission.CAMERA)
             }
         }
+    }
+
+    private fun setupSystemUI() {
+        val isDarkMode = (resources.configuration.uiMode and 
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) == 
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        
+        window.insetsController?.setSystemBarsAppearance(
+            if (isDarkMode) 0 else WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+        )
     }
 
     private fun startCamera() {

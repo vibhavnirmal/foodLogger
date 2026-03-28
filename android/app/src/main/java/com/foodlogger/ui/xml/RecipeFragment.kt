@@ -102,7 +102,7 @@ class RecipeFragment : Fragment(R.layout.fragment_recipes) {
         binding.emptyState.visibility = if (isEmpty && !hasError && !isLoading) View.VISIBLE else View.GONE
     }
 
-    private fun showCreateDialog() {
+    fun showCreateDialog() {
         val dialogBinding = DialogRecipeCreateBinding.inflate(layoutInflater)
         val draftAdapter = RecipeDraftAdapter(
             productsById = { availableProducts.associateBy { it.id } },
@@ -129,7 +129,7 @@ class RecipeFragment : Fragment(R.layout.fragment_recipes) {
             }
             dialogBinding.productInputLayout.error = null
             if (drafts.any { it.productId == product.id }) return@setOnClickListener
-            drafts += RecipeIngredientDraft(productId = product.id, quantity = 1f, unit = "unit")
+            drafts += RecipeIngredientDraft(productId = product.id)
             draftAdapter.submitList(drafts.toList())
             dialogBinding.productDropdown.setText("", false)
         }

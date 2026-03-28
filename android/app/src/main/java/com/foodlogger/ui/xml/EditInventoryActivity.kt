@@ -3,6 +3,7 @@ package com.foodlogger.ui.xml
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowInsetsController
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -32,10 +33,10 @@ class EditInventoryActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityEditInventoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setupSystemUI()
 
         itemId = intent.getIntExtra(EXTRA_ITEM_ID, 0)
         if (itemId == 0) {
-            Toast.makeText(this, "Invalid item", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -44,6 +45,17 @@ class EditInventoryActivity : AppCompatActivity() {
         setupDatePickers()
         setupSaveButton()
         observeData()
+    }
+
+    private fun setupSystemUI() {
+        val isDarkMode = (resources.configuration.uiMode and 
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) == 
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        
+        window.insetsController?.setSystemBarsAppearance(
+            if (isDarkMode) 0 else WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+        )
     }
 
     private fun setupToolbar() {
@@ -71,8 +83,6 @@ class EditInventoryActivity : AppCompatActivity() {
                         currentItem = items.find { it.id == itemId }
                         currentItem?.let { item ->
                             binding.itemNameText.text = item.displayName()
-                            binding.quantityInputEdit.setText(item.quantity.formatQuantity())
-                            binding.unitInputEdit.setText(item.unit)
                             binding.expiryInputEdit.setText(item.expiryDate?.toLocalDate()?.toString().orEmpty())
                             binding.storageInputEdit.setText(item.storageLocation.orEmpty())
                             binding.boughtFromInputEdit.setText(item.boughtFromStoreName.orEmpty())
@@ -116,27 +126,7 @@ class EditInventoryActivity : AppCompatActivity() {
     }
 
     private fun saveItem() {
-        var hasError = false
         val item = currentItem ?: return
-
-        val quantity = binding.quantityInputEdit.text?.toString().orEmpty().toPositiveFloatOrNull()
-        val unit = binding.unitInputEdit.text?.toString().orEmpty().trim()
-
-        if (quantity == null) {
-            binding.quantityInputLayout.error = getString(R.string.validation_quantity_positive)
-            hasError = true
-        } else {
-            binding.quantityInputLayout.error = null
-        }
-
-        if (unit.isBlank()) {
-            binding.unitInputLayout.error = getString(R.string.validation_required_unit)
-            hasError = true
-        } else {
-            binding.unitInputLayout.error = null
-        }
-
-        if (hasError) return
 
         val selectedStore = availableStores.firstOrNull {
             it.name == binding.boughtFromInputEdit.text?.toString().orEmpty()
@@ -144,8 +134,6 @@ class EditInventoryActivity : AppCompatActivity() {
 
         viewModel.saveInventoryItem(
             item = item,
-            quantity = quantity!!,
-            unit = unit,
             expiryDate = binding.expiryInputEdit.text?.toString().orEmpty().parseOptionalDateTime(),
             storageLocation = binding.storageInputEdit.text?.toString()?.trim()?.ifEmpty { null },
             boughtFromStoreId = selectedStore?.id,

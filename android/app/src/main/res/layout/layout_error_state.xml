@@ -20,7 +20,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:layout_gravity="center"
-            android:src="@android:drawable/ic_dialog_alert"
+            android:src="@drawable/ic_warning"
             android:tint="@color/expiry_expired"
             android:contentDescription="@null" />
     </com.google.android.material.card.MaterialCardView>

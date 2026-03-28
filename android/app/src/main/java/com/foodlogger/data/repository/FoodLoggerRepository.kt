@@ -11,6 +11,7 @@ import com.foodlogger.data.db.StoreEntity
 import com.foodlogger.data.db.RecipeEntity
 import com.foodlogger.data.db.RecipeIngredientEntity
 import com.foodlogger.data.db.TimeType
+import com.foodlogger.domain.model.Category
 import com.foodlogger.domain.model.ExpiryStatus
 import com.foodlogger.domain.model.InventoryItem
 import com.foodlogger.domain.model.Product
@@ -24,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.startWith
 import kotlinx.coroutines.withContext
@@ -89,6 +91,10 @@ class FoodLoggerRepository @Inject constructor(
                 products.map { it.toProduct() }
             }
         }
+    }
+
+    fun getDistinctCategories(): Flow<List<String>> {
+        return database.productDao().getDistinctCategories()
     }
 
     suspend fun getExistingProductNameMatches(names: List<String>): Set<String> {
@@ -202,8 +208,6 @@ class FoodLoggerRepository @Inject constructor(
     // INVENTORY operations
     suspend fun addInventoryItem(
         productId: Int,
-        quantity: Float,
-        unit: String,
         dateBought: LocalDateTime?,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
@@ -215,8 +219,6 @@ class FoodLoggerRepository @Inject constructor(
         return database.inventoryDao().insertInventory(
             InventoryEntity(
                 productId = productId,
-                quantity = quantity,
-                unit = unit,
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
@@ -231,8 +233,6 @@ class FoodLoggerRepository @Inject constructor(
 
     suspend fun addProductWithInventory(
         product: Product,
-        quantity: Float,
-        unit: String,
         dateBought: LocalDateTime?,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
@@ -245,8 +245,6 @@ class FoodLoggerRepository @Inject constructor(
             val productId = addProductAndGetId(product, mergeByName = false)
             val inventoryId = addInventoryItem(
                 productId = productId,
-                quantity = quantity,
-                unit = unit,
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
@@ -262,11 +260,14 @@ class FoodLoggerRepository @Inject constructor(
 
     // RECEIPT operations
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun saveReceipt(imagePath: String, dateShopped: LocalDateTime?, storeId: Int?): Int {
+    suspend fun saveReceipt(imagePath: String, dateShopped: LocalDateTime?, storeId: Int?, totalAmount: Float? = null): Int {
+        val storeName = storeId?.let { database.storeDao().getById(it)?.name }
         val receipt = ReceiptEntity(
             imagePath = imagePath,
             dateShopped = dateShopped?.toLocalDate()?.atStartOfDay(),
-            storeId = storeId
+            storeId = storeId,
+            storeName = storeName,
+            totalAmount = totalAmount
         )
         return database.receiptDao().insertReceipt(receipt).toInt()
     }
@@ -362,8 +363,6 @@ class FoodLoggerRepository @Inject constructor(
                 )
                 addProductWithInventory(
                     product = product,
-                    quantity = 1f,
-                    unit = "item",
                     dateBought = dateShopped,
                     expiryDate = null,
                     storageLocation = null,
@@ -372,6 +371,53 @@ class FoodLoggerRepository @Inject constructor(
                     imageUri = null,
                     receiptId = receiptId
                 )
+                addedCount++
+            }
+        }
+        return addedCount
+    }
+
+    suspend fun addItemsFromReceiptMatchingExisting(receiptId: Int, itemNames: List<String>): Int {
+        var addedCount = 0
+        database.withTransaction {
+            val receipt = database.receiptDao().getReceiptById(receiptId)
+            val storeId = receipt?.storeId
+            val dateShopped = receipt?.dateShopped ?: LocalDateTime.now()
+
+            for (rawName in itemNames) {
+                val name = rawName.trim()
+                if (name.isBlank()) continue
+
+                val existingProduct = database.productDao().getProductsByNormalizedName(name).firstOrNull()
+                if (existingProduct != null) {
+                    addInventoryItem(
+                        productId = existingProduct.id,
+                        dateBought = dateShopped,
+                        expiryDate = null,
+                        storageLocation = null,
+                        boughtFromStoreId = storeId,
+                        nameOverride = null,
+                        imageUri = null,
+                        receiptId = receiptId
+                    )
+                } else {
+                    val product = Product(
+                        barcode = null,
+                        name = name,
+                        brand = null,
+                        category = null,
+                    )
+                    addProductWithInventory(
+                        product = product,
+                        dateBought = dateShopped,
+                        expiryDate = null,
+                        storageLocation = null,
+                        boughtFromStoreId = storeId,
+                        nameOverride = null,
+                        imageUri = null,
+                        receiptId = receiptId
+                    )
+                }
                 addedCount++
             }
         }
@@ -424,8 +470,6 @@ class FoodLoggerRepository @Inject constructor(
 
     suspend fun updateInventoryItem(
         id: Int,
-        quantity: Float,
-        unit: String,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
@@ -435,8 +479,6 @@ class FoodLoggerRepository @Inject constructor(
         val existingItem = database.inventoryDao().getInventoryById(id) ?: return
         database.inventoryDao().updateInventory(
             existingItem.copy(
-                quantity = quantity,
-                unit = unit,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
@@ -455,8 +497,6 @@ class FoodLoggerRepository @Inject constructor(
         return database.inventoryDao().insertInventory(
             InventoryEntity(
                 productId = item.productId,
-                quantity = item.quantity,
-                unit = item.unit,
                 dateBought = item.dateBought,
                 expiryDate = item.expiryDate,
                 storageLocation = item.storageLocation,
@@ -563,6 +603,43 @@ class FoodLoggerRepository @Inject constructor(
         database.storeDao().deleteById(storeId)
     }
 
+    // CATEGORY operations
+    fun getAllCategories(): Flow<List<Category>> {
+        return database.categoryDao().getAllCategoriesFlow().map { categories ->
+            categories.map { Category(id = it.id, name = it.name) }
+        }
+    }
+
+    suspend fun addCategory(name: String) {
+        val normalizedName = name.trim()
+        require(normalizedName.isNotBlank()) { "Category name is required" }
+        require(database.categoryDao().getByName(normalizedName) == null) { "Category already exists" }
+
+        database.categoryDao().insert(com.foodlogger.data.db.CategoryEntity(name = normalizedName))
+    }
+
+    suspend fun renameCategory(categoryId: Int, newName: String) {
+        val normalizedName = newName.trim()
+        require(normalizedName.isNotBlank()) { "Category name is required" }
+
+        val existing = database.categoryDao().getById(categoryId)
+            ?: throw IllegalArgumentException("Category not found")
+
+        val duplicate = database.categoryDao().getByName(normalizedName)
+        require(duplicate == null || duplicate.id == categoryId) { "Category already exists" }
+
+        if (existing.name != normalizedName) {
+            database.categoryDao().update(existing.copy(name = normalizedName))
+        }
+    }
+
+    suspend fun deleteCategory(categoryId: Int) {
+        val existing = database.categoryDao().getById(categoryId)
+            ?: throw IllegalArgumentException("Category not found")
+
+        database.categoryDao().deleteById(categoryId)
+    }
+
     // RECIPE operations
     suspend fun addRecipe(name: String, timeType: String, ingredients: List<RecipeIngredientDraft>): Long {
         require(ingredients.isNotEmpty()) { "Recipe must include at least one ingredient" }
@@ -584,9 +661,7 @@ class FoodLoggerRepository @Inject constructor(
                 database.recipeIngredientDao().insertIngredient(
                     RecipeIngredientEntity(
                         recipeId = recipeId.toInt(),
-                        productId = ingredient.productId,
-                        quantity = ingredient.quantity,
-                        unit = ingredient.unit
+                        productId = ingredient.productId
                     )
                 )
             }
@@ -625,17 +700,11 @@ class FoodLoggerRepository @Inject constructor(
             var cookedCount = 0
             for (ingredient in recipe.ingredients) {
                 val inventoryItems = database.inventoryDao().getInventoryByProductId(ingredient.productId)
-                    .filter { it.quantity >= ingredient.quantity }
 
                 if (inventoryItems.isNotEmpty()) {
-                    val itemToDecrement = inventoryItems.first()
-                    val newQuantity = itemToDecrement.quantity - ingredient.quantity
+                    val itemToRemove = inventoryItems.first()
                     database.withTransaction {
-                        if (newQuantity <= 0) {
-                            database.inventoryDao().deleteInventoryById(itemToDecrement.id)
-                        } else {
-                            database.inventoryDao().updateInventory(itemToDecrement.copy(quantity = newQuantity))
-                        }
+                        database.inventoryDao().deleteInventoryById(itemToRemove.id)
                     }
                     cookedCount++
                 }
@@ -677,8 +746,6 @@ class FoodLoggerRepository @Inject constructor(
             productId = productId,
             barcode = barcode,
             productName = productName,
-            quantity = quantity,
-            unit = unit,
             dateBought = dateBought,
             expiryDate = expiryDate,
             storageLocation = storageLocation,
@@ -707,8 +774,6 @@ class FoodLoggerRepository @Inject constructor(
         recipeId = recipeId,
         productId = productId,
         productName = productName,
-        quantity = quantity,
-        unit = unit,
     )
 
     private suspend fun fetchOpenFoodFactsProduct(barcode: String): Product? = withContext(Dispatchers.IO) {

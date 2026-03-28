@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.foodlogger.data.db.ReceiptEntity
 import com.foodlogger.data.repository.FoodLoggerRepository
 import com.foodlogger.domain.model.InventoryItem
+import com.foodlogger.domain.model.Product
 import com.foodlogger.domain.model.Store
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -139,5 +141,40 @@ class ReceiptDetailViewModel @Inject constructor(
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    fun addMissingItem(productName: String) {
+        val receiptId = _receipt.value?.id ?: return
+        val trimmedName = productName.trim()
+        if (trimmedName.isEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                val existingProducts = repository.searchProducts(trimmedName).first()
+                val productId = if (existingProducts.isNotEmpty()) {
+                    existingProducts.first().id
+                } else {
+                    val newProduct = Product(
+                        name = trimmedName,
+                        barcode = null,
+                        brand = null,
+                        category = null
+                    )
+                    repository.addProductAndGetId(newProduct, mergeByName = false)
+                }
+
+                repository.addInventoryItem(
+                    productId = productId,
+                    dateBought = _receipt.value?.dateShopped,
+                    expiryDate = null,
+                    storageLocation = null,
+                    boughtFromStoreId = _receipt.value?.storeId,
+                    nameOverride = null,
+                    receiptId = receiptId
+                )
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error adding item"
+            }
+        }
     }
 }

@@ -4,12 +4,16 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowInsetsController
+import android.widget.PopupMenu
 import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import com.foodlogger.databinding.ActivityMainBinding
+import com.foodlogger.util.ThemeManager
 import com.foodlogger.ui.navigation.Screen
 import com.foodlogger.ui.xml.AddBottomSheet
 import com.foodlogger.ui.xml.HomeFragment
@@ -20,6 +24,7 @@ import com.foodlogger.ui.xml.RecipeFragment
 import com.foodlogger.ui.xml.ReceiptsFragment
 import com.foodlogger.ui.xml.ShoppingListFragment
 import com.foodlogger.ui.xml.SettingsFragment
+import com.google.android.material.color.MaterialColors
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -30,23 +35,88 @@ class MainActivity : AppCompatActivity() {
     private var isInProducts: Boolean = false
     private var isNavigating: Boolean = false
 
+    companion object {
+        private const val PREFS_NAME = "main_activity_prefs"
+        private const val KEY_CURRENT_SCREEN = "current_screen"
+        private const val STATE_CURRENT_SCREEN = "state_current_screen"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyThemeFromPreferences(this)
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.topAppBar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+        setupSystemUI()
 
         setupBottomNavigation()
 
-        if (savedInstanceState == null) {
-            val navigateTo = intent.getStringExtra("navigate_to")
-            if (navigateTo == "inventory") {
-                showScreen(Screen.INVENTORY, fromNav = false)
-                binding.bottomNavigation.selectedItemId = R.id.menu_inventory
-            } else {
+        val savedScreen = savedInstanceState?.getString(STATE_CURRENT_SCREEN)
+            ?: getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getString(KEY_CURRENT_SCREEN, null)
+
+        val navigateTo = intent.getStringExtra("navigate_to")
+        if (navigateTo == "inventory") {
+            showScreen(Screen.INVENTORY, fromNav = false)
+            binding.bottomNavigation.selectedItemId = R.id.menu_inventory
+        } else if (savedScreen != null) {
+            try {
+                val screen = Screen.valueOf(savedScreen)
+                showScreen(screen, fromNav = false)
+                when (screen) {
+                    Screen.HOME -> binding.bottomNavigation.selectedItemId = R.id.menu_home
+                    Screen.INVENTORY -> binding.bottomNavigation.selectedItemId = R.id.menu_inventory
+                    Screen.RECIPES -> binding.bottomNavigation.selectedItemId = R.id.menu_recipes
+                    Screen.HISTORY -> binding.bottomNavigation.selectedItemId = R.id.menu_history
+                    Screen.SETTINGS, Screen.PRODUCTS -> {
+                        // These are not bottom-nav destinations; keep their current UI state.
+                    }
+                }
+            } catch (e: Exception) {
                 showScreen(Screen.HOME, fromNav = false)
             }
+        } else {
+            showScreen(Screen.HOME, fromNav = false)
         }
+
+        syncTopBarWithCurrentScreen()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        saveCurrentScreenState()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_CURRENT_SCREEN, currentScreen.name)
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncTopBarWithCurrentScreen()
+    }
+
+    fun saveCurrentScreen() {
+        saveCurrentScreenState()
+    }
+
+    private fun saveCurrentScreenState() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(KEY_CURRENT_SCREEN, currentScreen.name)
+            .commit()
+    }
+
+    private fun setupSystemUI() {
+        val currentMode = ThemeManager.getThemeMode(this)
+        val isDarkMode = currentMode == ThemeManager.THEME_DARK
+        
+        window.insetsController?.setSystemBarsAppearance(
+            if (isDarkMode) 0 else WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+        )
     }
 
     private fun setupBottomNavigation() {
@@ -56,7 +126,6 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.menu_home -> showScreen(Screen.HOME, fromNav = true)
                 R.id.menu_inventory -> showScreen(Screen.INVENTORY, fromNav = true)
-                R.id.menu_add -> showAddBottomSheet()
                 R.id.menu_recipes -> showScreen(Screen.RECIPES, fromNav = true)
                 R.id.menu_history -> showScreen(Screen.HISTORY, fromNav = true)
             }
@@ -106,7 +175,7 @@ class MainActivity : AppCompatActivity() {
             binding.fragmentContainer.visibility = View.GONE
             binding.settingsContainer.visibility = View.VISIBLE
             binding.bottomNavigation.visibility = View.GONE
-            binding.topAppBar.navigationIcon = ContextCompat.getDrawable(this, R.drawable.ic_arrow_back)
+            setSettingsNavigationIcon()
             binding.topAppBar.setNavigationOnClickListener { goBack() }
             
             if (supportFragmentManager.findFragmentByTag("SETTINGS") == null) {
@@ -141,6 +210,26 @@ class MainActivity : AppCompatActivity() {
 
         invalidateOptionsMenu()
         isNavigating = false
+    }
+
+    private fun setSettingsNavigationIcon() {
+        binding.topAppBar.navigationIcon = AppCompatResources.getDrawable(this, R.drawable.ic_arrow_back)
+        val iconColor = MaterialColors.getColor(binding.topAppBar, com.google.android.material.R.attr.colorOnSurface)
+        binding.topAppBar.navigationIcon?.setTint(iconColor)
+    }
+
+    private fun syncTopBarWithCurrentScreen() {
+        if (!::binding.isInitialized) return
+
+        if (currentScreen == Screen.SETTINGS) {
+            binding.topAppBar.title = getString(R.string.title_settings)
+            setSettingsNavigationIcon()
+            binding.topAppBar.setNavigationOnClickListener { goBack() }
+        } else {
+            binding.topAppBar.title = getString(titleFor(currentScreen))
+            binding.topAppBar.navigationIcon = null
+            binding.topAppBar.setNavigationOnClickListener(null)
+        }
     }
 
     private fun goBack() {
@@ -182,8 +271,8 @@ class MainActivity : AppCompatActivity() {
         isNavigating = true
         currentScreen = Screen.PRODUCTS
         binding.topAppBar.title = getString(R.string.title_products)
-        binding.topAppBar.navigationIcon = null
-        binding.topAppBar.setNavigationOnClickListener(null)
+        binding.topAppBar.setNavigationIcon(R.drawable.ic_arrow_back)
+        binding.topAppBar.setNavigationOnClickListener { onBackPressed() }
         binding.bottomNavigation.visibility = View.VISIBLE
         binding.fragmentContainer.visibility = View.VISIBLE
         binding.settingsContainer.visibility = View.GONE
@@ -211,8 +300,8 @@ class MainActivity : AppCompatActivity() {
         binding.fragmentContainer.visibility = View.VISIBLE
         binding.settingsContainer.visibility = View.GONE
         binding.bottomNavigation.visibility = View.VISIBLE
-        binding.topAppBar.navigationIcon = null
-        binding.topAppBar.setNavigationOnClickListener(null)
+        binding.topAppBar.setNavigationIcon(R.drawable.ic_arrow_back)
+        binding.topAppBar.setNavigationOnClickListener { onBackPressed() }
         binding.topAppBar.title = getString(R.string.title_shopping_list)
 
         if (supportFragmentManager.findFragmentByTag("SHOPPING_LIST") == null) {
@@ -226,6 +315,19 @@ class MainActivity : AppCompatActivity() {
 
     fun navigateToReceiptScan() {
         startActivity(android.content.Intent(this, ReceiptCaptureActivity::class.java))
+    }
+
+    fun navigateToAddInventory() {
+        startActivity(android.content.Intent(this, com.foodlogger.ui.xml.AddInventoryActivity::class.java))
+    }
+
+    fun navigateToAddRecipe() {
+        showScreen(Screen.RECIPES, fromNav = true)
+        binding.fragmentContainer.postDelayed({
+            supportFragmentManager.findFragmentById(R.id.fragmentContainer)?.let {
+                (it as? RecipeFragment)?.showCreateDialog()
+            }
+        }, 100)
     }
 
     private fun navigateBackFromSubScreen() {

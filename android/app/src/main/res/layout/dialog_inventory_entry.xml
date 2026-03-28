@@ -73,7 +73,7 @@
             android:layout_marginTop="16dp"
             android:hint="@string/label_expiry_date"
             app:endIconMode="custom"
-            app:endIconDrawable="@android:drawable/ic_menu_my_calendar">
+            app:endIconDrawable="@drawable/baseline_calendar_month_24">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/expiryInputEdit"
                 android:layout_width="match_parent"
@@ -91,7 +91,7 @@
             android:layout_marginTop="16dp"
             android:hint="@string/label_date_bought"
             app:endIconMode="custom"
-            app:endIconDrawable="@android:drawable/ic_menu_my_calendar">
+            app:endIconDrawable="@drawable/baseline_calendar_month_24">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/dateBoughtInputEdit"
                 android:layout_width="match_parent"

@@ -33,8 +33,6 @@ data class InventoryEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val productId: Int,
-    val quantity: Float = 1.0f,
-    val unit: String = "unit",
     val dateBought: LocalDateTime?,
     val expiryDate: LocalDateTime?,
     val storageLocation: String?,

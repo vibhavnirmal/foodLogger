@@ -13,8 +13,6 @@ data class InventoryItem(
     val productId: Int,
     val barcode: String?,
     val productName: String,
-    val quantity: Float = 1.0f,
-    val unit: String = "unit",
     val dateBought: LocalDateTime?,
     val expiryDate: LocalDateTime?,
     val storageLocation: String?,

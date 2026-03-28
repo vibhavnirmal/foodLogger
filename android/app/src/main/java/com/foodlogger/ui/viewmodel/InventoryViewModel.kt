@@ -38,6 +38,27 @@ class InventoryViewModel @Inject constructor(
     private val _availableStores = MutableStateFlow<List<Store>>(emptyList())
     val availableStores: StateFlow<List<Store>> = _availableStores.asStateFlow()
 
+    private val _availableCategories = MutableStateFlow<List<String>>(emptyList())
+    val availableCategories: StateFlow<List<String>> = _availableCategories.asStateFlow()
+
+    private val _filterStoreId = MutableStateFlow<Int?>(null)
+    val filterStoreId: StateFlow<Int?> = _filterStoreId.asStateFlow()
+
+    private val _filterStorageLocation = MutableStateFlow<String?>(null)
+    val filterStorageLocation: StateFlow<String?> = _filterStorageLocation.asStateFlow()
+
+    private val _filterCategory = MutableStateFlow<String?>(null)
+    val filterCategory: StateFlow<String?> = _filterCategory.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _sortByExpiry = MutableStateFlow(false)
+    val sortByExpiry: StateFlow<Boolean> = _sortByExpiry.asStateFlow()
+
+    private val _filteredInventoryItems = MutableStateFlow<List<InventoryItem>>(emptyList())
+    val filteredInventoryItems: StateFlow<List<InventoryItem>> = _filteredInventoryItems.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -51,6 +72,18 @@ class InventoryViewModel @Inject constructor(
         loadProducts()
         loadStorageLocations()
         loadStores()
+        loadCategories()
+        
+        viewModelScope.launch {
+            _inventoryItems.collect {
+                applyFilters()
+            }
+        }
+        viewModelScope.launch {
+            _availableProducts.collect {
+                applyFilters()
+            }
+        }
     }
 
     private fun loadStores() {
@@ -61,6 +94,18 @@ class InventoryViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Error loading stores"
+            }
+        }
+    }
+
+    private fun loadCategories() {
+        viewModelScope.launch {
+            try {
+                repository.getDistinctCategories().collect { categories ->
+                    _availableCategories.value = categories
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error loading categories"
             }
         }
     }
@@ -109,10 +154,80 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
+    fun setFilterStoreId(storeId: Int?) {
+        _filterStoreId.value = storeId
+        applyFilters()
+    }
+
+    fun setFilterStorageLocation(location: String?) {
+        _filterStorageLocation.value = location
+        applyFilters()
+    }
+
+    fun setFilterCategory(category: String?) {
+        _filterCategory.value = category
+        applyFilters()
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+        applyFilters()
+    }
+
+    fun setSortByExpiry(sort: Boolean) {
+        _sortByExpiry.value = sort
+        applyFilters()
+    }
+
+    private fun applyFilters() {
+        val items = _inventoryItems.value
+        val storeId = _filterStoreId.value
+        val storageLocation = _filterStorageLocation.value
+        val category = _filterCategory.value
+        val query = _searchQuery.value.lowercase().trim()
+        val sortByExpiry = _sortByExpiry.value
+        
+        val productCategoryMap = _availableProducts.value.associate { it.id to it.category }
+
+        val filtered = items.filter { item ->
+            // Store filter
+            (storeId == null || item.boughtFromStoreId == storeId) &&
+            // Storage location filter
+            (storageLocation == null || item.storageLocation == storageLocation) &&
+            // Category filter
+            (category == null || 
+                (category == "" && (productCategoryMap[item.productId].isNullOrEmpty())) ||
+                (category != "" && productCategoryMap[item.productId] == category)) &&
+            // Search query
+            (query.isEmpty() ||
+                item.displayName().lowercase().contains(query) ||
+                item.productName.lowercase().contains(query) ||
+                (item.barcode?.lowercase()?.contains(query) == true) ||
+                (item.storageLocation?.lowercase()?.contains(query) == true) ||
+                (item.boughtFromStoreName?.lowercase()?.contains(query) == true))
+        }
+
+        val sorted = if (sortByExpiry) {
+            filtered.sortedWith(compareBy<InventoryItem> { item ->
+                when {
+                    item.expiryDate == null -> 3
+                    item.expiryStatus == com.foodlogger.domain.model.ExpiryStatus.EXPIRED -> 0
+                    item.expiryStatus == com.foodlogger.domain.model.ExpiryStatus.EXPIRING_SOON -> 1
+                    else -> 2
+                }
+            }
+                .thenBy { it.expiryDate ?: java.time.LocalDateTime.MAX }
+                .thenBy { it.displayName().lowercase() }
+                .thenBy { it.id })
+        } else {
+            filtered
+        }
+
+        _filteredInventoryItems.value = sorted
+    }
+
     suspend fun updateInventoryItem(
         id: Int,
-        quantity: Float,
-        unit: String,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
@@ -122,8 +237,6 @@ class InventoryViewModel @Inject constructor(
         try {
             repository.updateInventoryItem(
                 id = id,
-                quantity = quantity,
-                unit = unit,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
@@ -145,8 +258,6 @@ class InventoryViewModel @Inject constructor(
 
     suspend fun addInventoryItem(
         productId: Int,
-        quantity: Float,
-        unit: String,
         expiryDate: LocalDateTime?,
         dateBought: LocalDateTime? = LocalDateTime.now(),
         storageLocation: String? = null,
@@ -157,8 +268,6 @@ class InventoryViewModel @Inject constructor(
         try {
             repository.addInventoryItem(
                 productId = productId,
-                quantity = quantity,
-                unit = unit,
                 dateBought = dateBought,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
@@ -234,8 +343,6 @@ class InventoryViewModel @Inject constructor(
         return listOf(
             item.productId.toString(),
             item.displayName(),
-            item.quantity.toString(),
-            item.unit,
             item.dateBought?.toString().orEmpty(),
             item.expiryDate?.toString().orEmpty(),
             item.storageLocation.orEmpty(),
@@ -257,8 +364,6 @@ class InventoryViewModel @Inject constructor(
 
     fun saveInventoryItem(
         item: InventoryItem,
-        quantity: Float,
-        unit: String,
         expiryDate: LocalDateTime?,
         storageLocation: String?,
         boughtFromStoreId: Int?,
@@ -268,8 +373,6 @@ class InventoryViewModel @Inject constructor(
         viewModelScope.launch {
             updateInventoryItem(
                 id = item.id,
-                quantity = quantity,
-                unit = unit,
                 expiryDate = expiryDate,
                 storageLocation = storageLocation,
                 boughtFromStoreId = boughtFromStoreId,
@@ -281,8 +384,6 @@ class InventoryViewModel @Inject constructor(
 
     fun createInventoryItem(
         productId: Int,
-        quantity: Float,
-        unit: String,
         expiryDate: LocalDateTime?,
         dateBought: LocalDateTime?,
         storageLocation: String?,
@@ -293,8 +394,6 @@ class InventoryViewModel @Inject constructor(
         viewModelScope.launch {
             addInventoryItem(
                 productId = productId,
-                quantity = quantity,
-                unit = unit,
                 expiryDate = expiryDate,
                 dateBought = dateBought,
                 storageLocation = storageLocation,
@@ -307,8 +406,6 @@ class InventoryViewModel @Inject constructor(
 
     fun createInventoryItemWithProduct(
         product: Product,
-        quantity: Float,
-        unit: String,
         expiryDate: LocalDateTime?,
         dateBought: LocalDateTime?,
         storageLocation: String?,
@@ -320,8 +417,6 @@ class InventoryViewModel @Inject constructor(
             try {
                 repository.addProductWithInventory(
                     product = product,
-                    quantity = quantity,
-                    unit = unit,
                     dateBought = dateBought,
                     expiryDate = expiryDate,
                     storageLocation = storageLocation,

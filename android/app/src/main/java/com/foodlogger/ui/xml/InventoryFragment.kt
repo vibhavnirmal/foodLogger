@@ -6,6 +6,7 @@ import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
@@ -40,9 +41,6 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
     private val viewModel: InventoryViewModel by viewModels()
     private lateinit var adapter: InventoryAdapter
 
-    private var latestItems: List<InventoryItem> = emptyList()
-    private var currentSearchQuery: String = ""
-    private var isSortedByExpiry = false
     private var scrollToTopOnNextRender = false
     private var removalConfirmationMode: RemovalConfirmationMode = RemovalConfirmationMode.ASK_EACH_TIME
 
@@ -61,14 +59,21 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
         setupSwipeActions()
         setupSearch()
         setupSortButton()
+        setupFilters()
         binding.errorState.retryButton.setOnClickListener { viewModel.reloadInventory() }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.inventoryItems.collect { items ->
-                        latestItems = items
-                        renderItems()
+                    viewModel.filteredInventoryItems.collect { items ->
+                        val shouldScrollToTop = scrollToTopOnNextRender
+                        scrollToTopOnNextRender = false
+                        adapter.submitList(items) {
+                            if (shouldScrollToTop && items.isNotEmpty()) {
+                                binding.recyclerView.scrollToPosition(0)
+                            }
+                        }
+                        updateUiState(items.isEmpty())
                     }
                 }
                 launch {
@@ -88,63 +93,128 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
 
     private fun setupSearch() {
         binding.searchInput.doAfterTextChanged { editable ->
-            currentSearchQuery = editable?.toString().orEmpty()
-            renderItems()
+            viewModel.setSearchQuery(editable?.toString().orEmpty())
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.searchQuery.collect { query ->
+                    if (binding.searchInput.text?.toString() != query) {
+                        binding.searchInput.setText(query)
+                    }
+                }
+            }
         }
     }
 
     private fun setupSortButton() {
         binding.sortButton.setOnClickListener {
-            isSortedByExpiry = !isSortedByExpiry
+            viewModel.setSortByExpiry(!viewModel.sortByExpiry.value)
             scrollToTopOnNextRender = true
-            renderItems()
-            Toast.makeText(
-                context,
-                if (isSortedByExpiry) "Sorted by expiry" else "Sort removed",
-                Toast.LENGTH_SHORT
-            ).show()
         }
-    }
-
-    private fun renderItems() {
-        val query = currentSearchQuery.trim().lowercase()
-        val filteredItems = if (query.isBlank()) {
-            latestItems
-        } else {
-            latestItems.filter { item ->
-                item.displayName().lowercase().contains(query) ||
-                    item.productName.lowercase().contains(query) ||
-                    (item.barcode?.lowercase()?.contains(query) == true) ||
-                    (item.storageLocation?.lowercase()?.contains(query) == true) ||
-                    (item.boughtFromStoreName?.lowercase()?.contains(query) == true)
-            }
-        }
-
-        val displayedItems = if (isSortedByExpiry) {
-            filteredItems.sortedWith(compareBy<InventoryItem> { item ->
-                when {
-                    item.expiryDate == null -> 3
-                    item.expiryStatus == ExpiryStatus.EXPIRED -> 0
-                    item.expiryStatus == ExpiryStatus.EXPIRING_SOON -> 1
-                    else -> 2
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.sortByExpiry.collect { sortByExpiry ->
+                    Toast.makeText(
+                        context,
+                        if (sortByExpiry) "Sorted by expiry" else "Sort removed",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
-                .thenBy { it.expiryDate ?: java.time.LocalDateTime.MAX }
-                .thenBy { it.displayName().lowercase() }
-                .thenBy { it.id })
-        } else {
-            filteredItems
         }
+    }
 
-        val shouldScrollToTop = scrollToTopOnNextRender
-        scrollToTopOnNextRender = false
-        adapter.submitList(displayedItems) {
-            if (shouldScrollToTop && displayedItems.isNotEmpty()) {
-                binding.recyclerView.scrollToPosition(0)
+    private fun setupFilters() {
+        // Store filter
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.availableStores.collect { stores ->
+                    val storeOptions = mutableListOf<Pair<Int?, String>>(null to "All")
+                    storeOptions.addAll(stores.map { it.id to it.name })
+                    val adapter = ArrayAdapter(
+                        requireContext(),
+                        R.layout.item_dropdown_small,
+                        storeOptions.map { it.second }
+                    )
+                    binding.storeFilterDropdown.setAdapter(adapter)
+                    // Set current selection
+                    val currentStoreId = viewModel.filterStoreId.value
+                    val currentStoreName = storeOptions.find { it.first == currentStoreId }?.second ?: "All"
+                    binding.storeFilterDropdown.setText(currentStoreName, false)
+                }
             }
         }
-        updateUiState(displayedItems.isEmpty())
+        binding.storeFilterDropdown.setOnItemClickListener { _, _, position, _ ->
+            val stores = viewModel.availableStores.value
+            val storeOptions = mutableListOf<Pair<Int?, String>>(null to "All")
+            storeOptions.addAll(stores.map { it.id to it.name })
+            val selectedStoreId = storeOptions.getOrNull(position)?.first
+            viewModel.setFilterStoreId(selectedStoreId)
+        }
+
+        // Storage location filter
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.availableStorageLocations.collect { locations ->
+                    val locationOptions = mutableListOf<String>("All")
+                    locationOptions.addAll(locations)
+                    val adapter = ArrayAdapter(
+                        requireContext(),
+                        R.layout.item_dropdown_small,
+                        locationOptions
+                    )
+                    binding.locationFilterDropdown.setAdapter(adapter)
+                    // Set current selection
+                    val currentLocation = viewModel.filterStorageLocation.value ?: "All"
+                    binding.locationFilterDropdown.setText(currentLocation, false)
+                }
+            }
+        }
+        binding.locationFilterDropdown.setOnItemClickListener { _, _, position, _ ->
+            val locationOptions = mutableListOf<String>("All")
+            locationOptions.addAll(viewModel.availableStorageLocations.value)
+            val selectedLocation = locationOptions.getOrNull(position)
+            viewModel.setFilterStorageLocation(if (selectedLocation == "All") null else selectedLocation)
+        }
+
+        // Category filter
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.availableCategories.collect { categories ->
+                    val categoryOptions = mutableListOf<String>("All", "Uncategorized")
+                    categoryOptions.addAll(categories)
+                    val adapter = ArrayAdapter(
+                        requireContext(),
+                        R.layout.item_dropdown_small,
+                        categoryOptions
+                    )
+                    binding.categoryFilterDropdown.setAdapter(adapter)
+                    // Set current selection
+                    val currentCategory = viewModel.filterCategory.value
+                    val currentCategoryName = when (currentCategory) {
+                        null -> "All"
+                        "" -> "Uncategorized"
+                        else -> currentCategory
+                    }
+                    binding.categoryFilterDropdown.setText(currentCategoryName, false)
+                }
+            }
+        }
+        binding.categoryFilterDropdown.setOnItemClickListener { _, _, position, _ ->
+            val categories = viewModel.availableCategories.value
+            val categoryOptions = mutableListOf<String>("All", "Uncategorized")
+            categoryOptions.addAll(categories)
+            val selectedCategoryName = categoryOptions.getOrNull(position)
+            val selectedCategory = when (selectedCategoryName) {
+                "All" -> null
+                "Uncategorized" -> ""
+                else -> selectedCategoryName
+            }
+            viewModel.setFilterCategory(selectedCategory)
+        }
     }
+
+
 
     private fun setupSwipeActions() {
         val swipeCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
@@ -240,22 +310,25 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
     }
 
     private fun useItem(item: InventoryItem) {
-        val newQuantity = item.quantity - 1f
-        if (newQuantity <= 0) {
-            requestItemRemoval(item)
-        } else {
-            viewModel.saveInventoryItem(
-                item = item,
-                quantity = newQuantity,
-                unit = item.unit,
-                expiryDate = item.expiryDate,
-                storageLocation = item.storageLocation,
-                boughtFromStoreId = item.boughtFromStoreId,
-                nameOverride = item.nameOverride,
-                almostFinished = item.almostFinished
-            )
-            Toast.makeText(context, "Used 1 ${item.unit}", Toast.LENGTH_SHORT).show()
-        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Use ${item.displayName()}?")
+            .setItems(arrayOf("Mark as Almost Finished", "Delete Item")) { _, which ->
+                when (which) {
+                    0 -> {
+                        viewModel.saveInventoryItem(
+                            item = item,
+                            expiryDate = item.expiryDate,
+                            storageLocation = item.storageLocation,
+                            boughtFromStoreId = item.boughtFromStoreId,
+                            nameOverride = item.nameOverride,
+                            almostFinished = true
+                        )
+                        Toast.makeText(context, "Marked as almost finished", Toast.LENGTH_SHORT).show()
+                    }
+                    1 -> requestItemRemoval(item)
+                }
+            }
+            .show()
     }
 
     private fun requestItemRemoval(item: InventoryItem) {
@@ -283,8 +356,6 @@ class InventoryFragment : Fragment(R.layout.fragment_inventory) {
 
         viewModel.saveInventoryItem(
             item = item,
-            quantity = item.quantity,
-            unit = item.unit,
             expiryDate = item.expiryDate,
             storageLocation = item.storageLocation,
             boughtFromStoreId = item.boughtFromStoreId,

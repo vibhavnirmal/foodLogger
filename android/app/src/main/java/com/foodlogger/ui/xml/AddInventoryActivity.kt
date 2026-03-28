@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowInsetsController
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -62,6 +63,7 @@ class AddInventoryActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityAddInventoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setupSystemUI()
 
         setupToolbar()
         setupProductToggle()
@@ -69,6 +71,17 @@ class AddInventoryActivity : AppCompatActivity() {
         setupDatePickers()
         setupSaveButton()
         observeData()
+    }
+
+    private fun setupSystemUI() {
+        val isDarkMode = (resources.configuration.uiMode and 
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) == 
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        
+        window.insetsController?.setSystemBarsAppearance(
+            if (isDarkMode) 0 else WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+        )
     }
 
     private fun setupToolbar() {
@@ -228,24 +241,8 @@ class AddInventoryActivity : AppCompatActivity() {
             it.name == binding.boughtFromInputEdit.text?.toString().orEmpty()
         }
         
-        val quantity = binding.quantityInputEdit.text?.toString().orEmpty().toPositiveFloatOrNull()
-        val unit = binding.unitInputEdit.text?.toString().orEmpty().trim()
         val dateBoughtText = binding.dateBoughtInputEdit.text?.toString().orEmpty()
         val isDateBoughtFuture = dateBoughtText.isFutureDateInput()
-
-        if (quantity == null) {
-            binding.quantityInputLayout.error = getString(R.string.validation_quantity_positive)
-            hasError = true
-        } else {
-            binding.quantityInputLayout.error = null
-        }
-
-        if (unit.isBlank()) {
-            binding.unitInputLayout.error = getString(R.string.validation_required_unit)
-            hasError = true
-        } else {
-            binding.unitInputLayout.error = null
-        }
 
         if (isDateBoughtFuture) {
             binding.dateBoughtInputLayout.error = getString(R.string.validation_date_bought_not_future)
@@ -258,8 +255,6 @@ class AddInventoryActivity : AppCompatActivity() {
 
         viewModel.createInventoryItemWithProduct(
             product = product!!,
-            quantity = quantity!!,
-            unit = unit,
             expiryDate = binding.expiryInputEdit.text?.toString().orEmpty().parseOptionalDateTime(),
             dateBought = dateBoughtText.parseOptionalDateTime(),
             storageLocation = binding.storageInputEdit.text?.toString()?.trim()?.ifEmpty { null },

@@ -138,23 +138,6 @@ class AddBottomSheet : BottomSheetDialogFragment() {
             binding.productInputLayout.error = null
         }
 
-        val quantityText = binding.quantityInput.text?.toString().orEmpty()
-        val quantity = quantityText.toPositiveFloatOrNull()
-        if (quantity == null) {
-            binding.quantityInputLayout.error = getString(R.string.validation_quantity_positive)
-            hasError = true
-        } else {
-            binding.quantityInputLayout.error = null
-        }
-
-        val unit = binding.unitInput.text?.toString()?.trim().orEmpty().orEmpty()
-        if (unit.isBlank()) {
-            binding.unitInputLayout.error = getString(R.string.validation_required_unit)
-            hasError = true
-        } else {
-            binding.unitInputLayout.error = null
-        }
-
         if (hasError) return
 
         val expiryText = binding.expiryInput.text?.toString().orEmpty()
@@ -163,8 +146,6 @@ class AddBottomSheet : BottomSheetDialogFragment() {
 
         viewModel.createInventoryItemWithProduct(
             product = product!!,
-            quantity = quantity!!,
-            unit = unit,
             expiryDate = expiryDate,
             dateBought = LocalDateTime.now(),
             storageLocation = storageLocation,

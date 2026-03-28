@@ -48,6 +48,9 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE name LIKE '%' || :query || '%' OR brand LIKE '%' || :query || '%' OR barcode LIKE '%' || :query || '%' ORDER BY name ASC")
     fun searchProducts(query: String): Flow<List<ProductEntity>>
 
+    @Query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL ORDER BY category")
+    fun getDistinctCategories(): Flow<List<String>>
+
     @Update
     suspend fun updateProduct(product: ProductEntity)
 

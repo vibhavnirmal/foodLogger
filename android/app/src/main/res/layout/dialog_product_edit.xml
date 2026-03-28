@@ -80,7 +80,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         app:endIconMode="custom"
-        app:endIconDrawable="@android:drawable/ic_menu_camera"
+        app:endIconDrawable="@drawable/baseline_camera_alt_24"
         app:endIconContentDescription="@string/action_scan_barcode">
 
         <com.google.android.material.textfield.TextInputEditText

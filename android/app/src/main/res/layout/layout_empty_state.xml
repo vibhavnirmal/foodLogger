@@ -20,7 +20,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:layout_gravity="center"
-            android:src="@android:drawable/ic_menu_agenda"
+            android:src="@drawable/ic_nav_shopping"
             android:tint="?attr/colorOnSurfaceVariant"
             android:contentDescription="@null" />
     </com.google.android.material.card.MaterialCardView>

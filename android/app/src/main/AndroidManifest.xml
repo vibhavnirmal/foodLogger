@@ -56,6 +56,12 @@
             android:label="Receipt Details"
             android:theme="@style/Theme.FoodLogger" />
 
+        <activity
+            android:name=".ui.xml.ManagementActivity"
+            android:exported="false"
+            android:label="@string/settings_management"
+            android:theme="@style/Theme.FoodLogger" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"

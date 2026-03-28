@@ -59,7 +59,7 @@
                 android:layout_height="wrap_content"
                 android:hint=""
                 app:endIconMode="custom"
-                app:endIconDrawable="@android:drawable/ic_menu_my_calendar">
+                app:endIconDrawable="@drawable/baseline_calendar_month_24">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/dateShoppedInput"
@@ -145,9 +145,54 @@
             android:id="@+id/itemCount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant"
             tools:text="21 items" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/addMissingItemButton"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add Missing Item"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/addMissingItemLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/missingItemInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Item name"
+                android:inputType="text"
+                android:imeOptions="actionDone" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/confirmMissingItemButton"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            app:icon="@drawable/baseline_check_24"
+            android:contentDescription="Add item" />
 
     </LinearLayout>
 

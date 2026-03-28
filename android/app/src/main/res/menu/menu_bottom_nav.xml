@@ -10,10 +10,6 @@
         android:icon="@drawable/ic_nav_inventory"
         android:title="@string/title_inventory" />
     <item
-        android:id="@+id/menu_add"
-        android:icon="@drawable/ic_add"
-        android:title="Add" />
-    <item
         android:id="@+id/menu_recipes"
         android:icon="@drawable/ic_nav_recipes"
         android:title="@string/title_recipes" />

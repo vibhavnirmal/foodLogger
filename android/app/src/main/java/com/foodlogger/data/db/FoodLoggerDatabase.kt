@@ -16,9 +16,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecipeIngredientEntity::class,
         StorageLocationEntity::class,
         StoreEntity::class,
-        ReceiptEntity::class
+        ReceiptEntity::class,
+        CategoryEntity::class
     ],
-    version = 7,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(LocalDateTimeConverter::class)
@@ -30,12 +31,20 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
     abstract fun storageLocationDao(): StorageLocationDao
     abstract fun storeDao(): StoreDao
     abstract fun receiptDao(): ReceiptDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         private val DEFAULT_STORAGE_LOCATIONS = listOf("Fridge", "Freezer", "Pantry", "Kitchen Shelf")
         private val DEFAULT_STORES = listOf(
-            "Walmart" to "android.resource://com.foodlogger/drawable/store_walmart",
-            "Costco" to "android.resource://com.foodlogger/drawable/store_costco"
+            "Walmart",
+            "Costco",
+            "Kroger",
+            "Trader Joe's"
+        )
+        private val DEFAULT_CATEGORIES = listOf(
+            "Produce", "Dairy", "Bakery",
+            "Frozen", "Beverages", "Snacks", "Condiments", "Canned Goods",
+            "Grains", "Pasta", "Breakfast", "Household", "Personal Care"
         )
 
         private fun seedDefaultStorageLocations(db: SupportSQLiteDatabase) {
@@ -46,12 +55,18 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
         }
 
         private fun seedDefaultStores(db: SupportSQLiteDatabase) {
-            DEFAULT_STORES.forEach { (name, imageUri) ->
+            DEFAULT_STORES.forEach { name ->
                 val escapedName = name.replace("'", "''")
-                val escapedUri = imageUri.replace("'", "''")
                 db.execSQL(
-                    "INSERT OR IGNORE INTO stores(name, imageUri) VALUES('$escapedName', '$escapedUri')"
+                    "INSERT OR IGNORE INTO stores(name, imageUri) VALUES('$escapedName', NULL)"
                 )
+            }
+        }
+
+        private fun seedDefaultCategories(db: SupportSQLiteDatabase) {
+            DEFAULT_CATEGORIES.forEach { category ->
+                val escaped = category.replace("'", "''")
+                db.execSQL("INSERT OR IGNORE INTO categories(name) VALUES('$escaped')")
             }
         }
 
@@ -217,6 +232,73 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE inventory RENAME TO inventory_old")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS inventory (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        productId INTEGER NOT NULL,
+                        dateBought TEXT,
+                        expiryDate TEXT,
+                        storageLocation TEXT,
+                        boughtFromStoreId INTEGER,
+                        nameOverride TEXT,
+                        almostFinished INTEGER NOT NULL DEFAULT 0,
+                        imageUri TEXT,
+                        dateCreated TEXT NOT NULL,
+                        receiptId INTEGER,
+                        FOREIGN KEY(productId) REFERENCES products(id) ON DELETE CASCADE,
+                        FOREIGN KEY(receiptId) REFERENCES receipts(id) ON DELETE SET NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_productId ON inventory(productId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_expiryDate ON inventory(expiryDate)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_boughtFromStoreId ON inventory(boughtFromStoreId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_receiptId ON inventory(receiptId)")
+                db.execSQL("""
+                    INSERT INTO inventory (id, productId, dateBought, expiryDate, storageLocation, boughtFromStoreId, nameOverride, almostFinished, imageUri, dateCreated, receiptId)
+                    SELECT id, productId, dateBought, expiryDate, storageLocation, boughtFromStoreId, nameOverride, almostFinished, imageUri, dateCreated, receiptId FROM inventory_old
+                """.trimIndent())
+                db.execSQL("DROP TABLE inventory_old")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recipe_ingredients RENAME TO recipe_ingredients_old")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS recipe_ingredients (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        recipeId INTEGER NOT NULL,
+                        productId INTEGER NOT NULL,
+                        FOREIGN KEY(recipeId) REFERENCES recipes(id) ON DELETE CASCADE,
+                        FOREIGN KEY(productId) REFERENCES products(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_ingredients_recipeId ON recipe_ingredients(recipeId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_ingredients_productId ON recipe_ingredients(productId)")
+                db.execSQL("""
+                    INSERT INTO recipe_ingredients (id, recipeId, productId)
+                    SELECT id, recipeId, productId FROM recipe_ingredients_old
+                """.trimIndent())
+                db.execSQL("DROP TABLE recipe_ingredients_old")
+            }
+        }
+
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS categories (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_categories_name ON categories(name)")
+                seedDefaultCategories(db)
+            }
+        }
+
         @Volatile
         private var INSTANCE: FoodLoggerDatabase? = null
 
@@ -233,6 +315,7 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
                             db.execSQL("PRAGMA foreign_keys = ON")
                             seedDefaultStorageLocations(db)
                             seedDefaultStores(db)
+                            seedDefaultCategories(db)
                         }
 
                         override fun onOpen(db: SupportSQLiteDatabase) {
@@ -240,7 +323,7 @@ abstract class FoodLoggerDatabase : RoomDatabase() {
                             db.execSQL("PRAGMA foreign_keys = ON")
                         }
                     })
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     .build()
                 INSTANCE = instance
                 instance

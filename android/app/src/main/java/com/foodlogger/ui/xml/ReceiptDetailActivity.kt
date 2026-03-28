@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.WindowInsetsController
 import android.widget.ArrayAdapter
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
@@ -40,7 +41,7 @@ class ReceiptDetailActivity : AppCompatActivity() {
     private lateinit var binding: ActivityReceiptDetailBinding
     private val viewModel: ReceiptDetailViewModel by viewModels()
     private lateinit var itemsAdapter: ReceiptItemsAdapter
-    
+
     private var storeAdapter: ArrayAdapter<String>? = null
     private var stores: List<Store> = emptyList()
     private var selectedDate: LocalDate? = null
@@ -59,6 +60,15 @@ class ReceiptDetailActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityReceiptDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setupSystemUI()
+        setupToolbar()
+        setupItemsList()
+        setupStoreDropdown()
+        setupDatePicker()
+        setupButtons()
+        setupReceiptImagePreview()
+        setupAddMissingItem()
+        setupObservers()
 
         val receiptId = intent.getIntExtra(EXTRA_RECEIPT_ID, -1)
         if (receiptId == -1) {
@@ -66,15 +76,18 @@ class ReceiptDetailActivity : AppCompatActivity() {
             return
         }
 
-        setupToolbar()
-        setupItemsList()
-        setupStoreDropdown()
-        setupDatePicker()
-        setupButtons()
-        setupObservers()
-        setupReceiptImagePreview()
-
         viewModel.loadReceipt(receiptId)
+    }
+
+    private fun setupSystemUI() {
+        val isDarkMode = (resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+        window.insetsController?.setSystemBarsAppearance(
+            if (isDarkMode) 0 else WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+        )
     }
 
     private fun setupToolbar() {
@@ -90,7 +103,11 @@ class ReceiptDetailActivity : AppCompatActivity() {
     }
 
     private fun setupStoreDropdown() {
-        storeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf<String>())
+        storeAdapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            mutableListOf<String>()
+        )
         binding.storeNameInput.setAdapter(storeAdapter)
 
         binding.storeNameInput.setOnClickListener {
@@ -115,8 +132,9 @@ class ReceiptDetailActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun showDatePicker() {
-        val currentSelection = selectedDate?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
-            ?: System.currentTimeMillis()
+        val currentSelection =
+            selectedDate?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+                ?: System.currentTimeMillis()
 
         val picker = MaterialDatePicker.Builder.datePicker()
             .setTitleText(getString(R.string.label_date_shopped))
@@ -168,6 +186,35 @@ class ReceiptDetailActivity : AppCompatActivity() {
             showReceiptImagePreview()
         }
         binding.receiptImage.isEnabled = false
+    }
+
+    private fun setupAddMissingItem() {
+        binding.addMissingItemButton.setOnClickListener {
+            binding.addMissingItemLayout.visibility = View.VISIBLE
+            binding.addMissingItemButton.visibility = View.GONE
+            binding.missingItemInput.requestFocus()
+        }
+
+        binding.confirmMissingItemButton.setOnClickListener {
+            val itemName = binding.missingItemInput.text?.toString()?.trim() ?: ""
+            if (itemName.isNotEmpty()) {
+                viewModel.addMissingItem(itemName)
+                binding.missingItemInput.setText("")
+                binding.addMissingItemLayout.visibility = View.GONE
+                binding.addMissingItemButton.visibility = View.VISIBLE
+            }
+        }
+
+        binding.missingItemInput.setOnEditorActionListener { _, _, _ ->
+            val itemName = binding.missingItemInput.text?.toString()?.trim() ?: ""
+            if (itemName.isNotEmpty()) {
+                viewModel.addMissingItem(itemName)
+                binding.missingItemInput.setText("")
+                binding.addMissingItemLayout.visibility = View.GONE
+                binding.addMissingItemButton.visibility = View.VISIBLE
+            }
+            true
+        }
     }
 
     private fun updateSaveButtonState() {
@@ -240,8 +287,10 @@ class ReceiptDetailActivity : AppCompatActivity() {
                 launch {
                     viewModel.inventoryItems.collect { items ->
                         itemsAdapter.submitList(items)
-                        binding.noItemsText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
-                        binding.itemsRecyclerView.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+                        binding.noItemsText.visibility =
+                            if (items.isEmpty()) View.VISIBLE else View.GONE
+                        binding.itemsRecyclerView.visibility =
+                            if (items.isEmpty()) View.GONE else View.VISIBLE
                         binding.itemCount.text = "${items.size} items"
                     }
                 }
@@ -256,20 +305,27 @@ class ReceiptDetailActivity : AppCompatActivity() {
                 }
                 launch {
                     viewModel.isLoading.collect { isLoading ->
-                        binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+                        binding.progressBar.visibility =
+                            if (isLoading) View.VISIBLE else View.GONE
                     }
                 }
                 launch {
                     viewModel.saveSuccess.collect { success ->
                         when (success) {
                             true -> {
-                                Snackbar.make(binding.root, "Receipt saved", Snackbar.LENGTH_SHORT).show()
+                                Snackbar.make(
+                                    binding.root,
+                                    "Receipt saved",
+                                    Snackbar.LENGTH_SHORT
+                                ).show()
                                 viewModel.clearSaveSuccess()
                                 finish()
                             }
+
                             false -> {
                                 viewModel.clearSaveSuccess()
                             }
+
                             null -> {}
                         }
                     }
@@ -278,13 +334,19 @@ class ReceiptDetailActivity : AppCompatActivity() {
                     viewModel.deleteSuccess.collect { success ->
                         when (success) {
                             true -> {
-                                Snackbar.make(binding.root, "Receipt deleted", Snackbar.LENGTH_SHORT).show()
+                                Snackbar.make(
+                                    binding.root,
+                                    "Receipt deleted",
+                                    Snackbar.LENGTH_SHORT
+                                ).show()
                                 viewModel.clearDeleteSuccess()
                                 finish()
                             }
+
                             false -> {
                                 viewModel.clearDeleteSuccess()
                             }
+
                             null -> {}
                         }
                     }

@@ -71,7 +71,6 @@ class BarcodeFragment : Fragment(R.layout.fragment_barcode) {
             binding.dateBoughtInputEdit.error = if (isDateBoughtFuture) getString(R.string.validation_date_bought_not_future) else null
             if (quantity != null && !isDateBoughtFuture) {
                 viewLifecycleOwner.lifecycleScope.launch {
-                    viewModel.setQuantity(quantity)
                     viewModel.addScannedItemToInventory()
                     clearForm()
                 }
@@ -88,7 +87,6 @@ class BarcodeFragment : Fragment(R.layout.fragment_barcode) {
             binding.dateBoughtInputEdit.error = if (isDateBoughtFuture) getString(R.string.validation_date_bought_not_future) else null
             if (quantity != null && name.isNotBlank() && barcode != null && !isDateBoughtFuture) {
                 viewLifecycleOwner.lifecycleScope.launch {
-                    viewModel.setQuantity(quantity)
                     viewModel.addManualProductAndInventory(barcode, name, binding.manualBrandInputEdit.text?.toString()?.trim()?.ifEmpty { null })
                     clearForm()
                 }

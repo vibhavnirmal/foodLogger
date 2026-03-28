@@ -40,8 +40,15 @@ class ReceiptScanViewModel @Inject constructor(
     private val _availableStores = MutableStateFlow<List<Store>>(emptyList())
     val availableStores: StateFlow<List<Store>> = _availableStores.asStateFlow()
 
+    private val _confirmedStoreName = MutableStateFlow("")
+    val confirmedStoreName: StateFlow<String> = _confirmedStoreName.asStateFlow()
+
+    private val _selectedTotalAmount = MutableStateFlow<Float?>(null)
+    val selectedTotalAmount: StateFlow<Float?> = _selectedTotalAmount.asStateFlow()
+
     private var currentImagePath: String? = null
     private var currentReceiptId: Int? = null
+    private var manualItemCounter: Int = 0
 
     private val pricedAmountPattern = Regex("""(?<!\d)(\$?\s*(?:\d{1,4}[\.,]\d{2}|[\.,]\d{2}))(?!\d)""")
     private val dollarIntegerPattern = Regex("""\$\s*(\d{1,4})(?!\d)""")
@@ -62,6 +69,8 @@ class ReceiptScanViewModel @Inject constructor(
         currentImagePath = path
         _selectedDateShopped.value = LocalDate.now().atStartOfDay()
         _selectedStoreId.value = null
+        _confirmedStoreName.value = ""
+        _selectedTotalAmount.value = null
     }
 
     fun setDateShopped(date: LocalDateTime) {
@@ -72,10 +81,48 @@ class ReceiptScanViewModel @Inject constructor(
         _selectedStoreId.value = storeId
     }
 
+    fun setStoreName(storeName: String) {
+        viewModelScope.launch {
+            val trimmedName = storeName.trim()
+            if (trimmedName.isEmpty()) {
+                _selectedStoreId.value = null
+                _confirmedStoreName.value = ""
+                return@launch
+            }
+            
+            val existingStore = _availableStores.value.find { 
+                it.name.equals(trimmedName, ignoreCase = true) 
+            }
+            
+            if (existingStore != null) {
+                _selectedStoreId.value = existingStore.id
+                _confirmedStoreName.value = trimmedName
+            } else {
+                val newStoreId = repository.addStore(trimmedName)
+                _selectedStoreId.value = newStoreId
+                _confirmedStoreName.value = trimmedName
+                refreshStores()
+            }
+        }
+    }
+
+    fun setTotalAmount(amount: Float?) {
+        _selectedTotalAmount.value = amount
+    }
+
+    private fun refreshStores() {
+        viewModelScope.launch {
+            repository.getAllStores().collect { stores ->
+                _availableStores.value = stores
+            }
+        }
+    }
+
     fun processReceiptText(text: String) {
         viewModelScope.launch {
             _isProcessing.value = true
             try {
+                val manualItems = _detectedItems.value.filter { it.isManual }
                 val lines = text.lines()
                     .map { it.trim() }
                     .filter { it.isNotBlank() && it.length > 2 }
@@ -98,12 +145,41 @@ class ReceiptScanViewModel @Inject constructor(
                     )
                 }
 
-                _detectedItems.value = items
+                _detectedItems.value = items + manualItems
             } catch (e: Exception) {
                 _errorMessage.value = "Error parsing receipt: ${e.message}"
             } finally {
                 _isProcessing.value = false
             }
+        }
+    }
+
+    fun addCustomItem(nameInput: String, priceInput: String?) {
+        val name = nameInput.trim()
+        if (name.isBlank()) {
+            _errorMessage.value = "Item name is required"
+            return
+        }
+
+        val parsedPrice = priceInput
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.replace("$", "")
+            ?.toFloatOrNull()
+
+        viewModelScope.launch {
+            val existingNameMatches = repository.getExistingProductNameMatches(listOf(name))
+            val isExisting = existingNameMatches.contains(name.lowercase())
+            val newItem = ReceiptItem(
+                id = "manual_${manualItemCounter++}",
+                name = name,
+                price = parsedPrice,
+                quantity = 1,
+                isSelected = true,
+                productExists = isExisting,
+                isManual = true
+            )
+            _detectedItems.value = _detectedItems.value + newItem
         }
     }
 
@@ -228,7 +304,8 @@ class ReceiptScanViewModel @Inject constructor(
                 currentReceiptId = repository.saveReceipt(
                     imagePath = imagePath,
                     dateShopped = dateShopped,
-                    storeId = storeId
+                    storeId = storeId,
+                    totalAmount = _selectedTotalAmount.value
                 )
             }
 
@@ -237,7 +314,7 @@ class ReceiptScanViewModel @Inject constructor(
             val itemNames = selectedItems.map { it.name }
 
             if (receiptId != null && itemNames.isNotEmpty()) {
-                addedCount = repository.addItemsFromReceipt(receiptId, itemNames)
+                addedCount = repository.addItemsFromReceiptMatchingExisting(receiptId, itemNames)
             }
             _itemsAdded.value = addedCount
             return addedCount

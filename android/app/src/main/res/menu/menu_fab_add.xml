@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_add_inventory"
+        android:icon="@drawable/ic_nav_inventory"
+        android:title="@string/action_add_inventory_item" />
+    <item
+        android:id="@+id/menu_scan_receipt"
+        android:icon="@drawable/baseline_camera_alt_24"
+        android:title="@string/action_scan_receipt_short" />
+    <item
+        android:id="@+id/menu_add_recipe"
+        android:icon="@drawable/ic_nav_recipes"
+        android:title="@string/action_add_recipe_short" />
+</menu>

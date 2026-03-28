@@ -6,7 +6,72 @@
     android:orientation="vertical"
     android:background="?attr/android:colorBackground">
 
-    <!-- Header with Sort -->
+    <!-- Filter Dropdowns -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            app:endIconMode="dropdown_menu"
+            app:hintTextAppearance="@style/TextAppearance.Material3.BodySmall">
+
+            <AutoCompleteTextView
+                android:id="@+id/storeFilterDropdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:textSize="12sp"
+                android:hint="All" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="4dp"
+            app:endIconMode="dropdown_menu"
+            app:hintTextAppearance="@style/TextAppearance.Material3.BodySmall">
+
+            <AutoCompleteTextView
+                android:id="@+id/locationFilterDropdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:textSize="12sp"
+                android:hint="All" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            app:endIconMode="dropdown_menu"
+            app:hintTextAppearance="@style/TextAppearance.Material3.BodySmall">
+
+            <AutoCompleteTextView
+                android:id="@+id/categoryFilterDropdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:textSize="12sp"
+                android:hint="All" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+    </LinearLayout>
+
+    <!-- Search Bar and Sort -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -33,7 +98,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:src="@drawable/ic_sort"
             android:contentDescription="Sort by expiry"
             app:tint="?attr/colorOnSurfaceVariant" />
     </LinearLayout>

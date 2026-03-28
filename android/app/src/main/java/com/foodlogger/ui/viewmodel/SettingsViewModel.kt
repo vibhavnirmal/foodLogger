@@ -3,6 +3,7 @@ package com.foodlogger.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.foodlogger.data.repository.FoodLoggerRepository
+import com.foodlogger.domain.model.Category
 import com.foodlogger.domain.model.Store
 import com.foodlogger.domain.model.StorageLocation
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,12 +27,16 @@ class SettingsViewModel @Inject constructor(
     private val _stores = MutableStateFlow<List<Store>>(emptyList())
     val stores: StateFlow<List<Store>> = _stores.asStateFlow()
 
+    private val _categories = MutableStateFlow<List<Category>>(emptyList())
+    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     init {
         observeLocations()
         observeStores()
+        observeCategories()
     }
 
     private fun observeLocations() {
@@ -61,6 +66,18 @@ class SettingsViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Failed to load stores"
+            }
+        }
+    }
+
+    private fun observeCategories() {
+        viewModelScope.launch {
+            try {
+                repository.getAllCategories().collect { items ->
+                    _categories.value = items
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Failed to load categories"
             }
         }
     }
@@ -115,6 +132,27 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { repository.deleteStore(id) }
                 .onFailure { _errorMessage.value = it.message ?: "Failed to delete store" }
+        }
+    }
+
+    fun addCategory(name: String) {
+        viewModelScope.launch {
+            runCatching { repository.addCategory(name) }
+                .onFailure { _errorMessage.value = it.message ?: "Failed to add category" }
+        }
+    }
+
+    fun renameCategory(id: Int, newName: String) {
+        viewModelScope.launch {
+            runCatching { repository.renameCategory(id, newName) }
+                .onFailure { _errorMessage.value = it.message ?: "Failed to rename category" }
+        }
+    }
+
+    fun deleteCategory(id: Int) {
+        viewModelScope.launch {
+            runCatching { repository.deleteCategory(id) }
+                .onFailure { _errorMessage.value = it.message ?: "Failed to delete category" }
         }
     }
 }

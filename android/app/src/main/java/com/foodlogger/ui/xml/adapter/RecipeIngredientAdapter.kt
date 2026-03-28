@@ -1,14 +1,12 @@
 package com.foodlogger.ui.xml.adapter
 
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.foodlogger.databinding.ItemRecipeIngredientBinding
 import com.foodlogger.domain.model.RecipeIngredient
-import com.foodlogger.ui.xml.formatQuantity
 
 class RecipeIngredientAdapter : ListAdapter<RecipeIngredient, RecipeIngredientAdapter.RecipeIngredientViewHolder>(DiffCallback) {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecipeIngredientViewHolder {
@@ -25,8 +23,6 @@ class RecipeIngredientAdapter : ListAdapter<RecipeIngredient, RecipeIngredientAd
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: RecipeIngredient) {
             binding.titleText.text = item.productName
-            binding.barcodeText.visibility = View.GONE
-            binding.quantityText.text = "${item.quantity.formatQuantity()} ${item.unit}"
         }
     }
 

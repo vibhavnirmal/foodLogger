@@ -9,7 +9,7 @@
     <ImageView
         android:layout_width="24dp"
         android:layout_height="24dp"
-        android:src="@android:drawable/ic_menu_agenda"
+        android:src="@drawable/ic_nav_shopping"
         android:tint="?attr/colorPrimary"
         android:contentDescription="@null" />
 

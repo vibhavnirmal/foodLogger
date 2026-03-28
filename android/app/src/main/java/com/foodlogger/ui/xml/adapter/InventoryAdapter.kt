@@ -12,7 +12,6 @@ import com.foodlogger.databinding.ItemInventoryBinding
 import com.foodlogger.domain.model.ExpiryStatus
 import com.foodlogger.domain.model.InventoryItem
 import com.foodlogger.ui.xml.displayDate
-import com.foodlogger.ui.xml.formatQuantity
 
 class InventoryAdapter(
     private val onClick: (InventoryItem) -> Unit,
@@ -36,7 +35,7 @@ class InventoryAdapter(
             val context = binding.root.context
             binding.titleText.text = item.displayName()
             val actionIconRes = if (item.almostFinished) {
-                R.drawable.baseline_check_box_24
+                R.drawable.action_remove_from_shopping_list
             } else {
                 R.drawable.baseline_add_shopping_cart_24
             }

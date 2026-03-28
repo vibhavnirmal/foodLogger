@@ -18,8 +18,6 @@ data class Recipe(
 
 data class RecipeIngredientDraft(
     val productId: Int,
-    val quantity: Float = 1.0f,
-    val unit: String = "unit",
 )
 
 data class RecipeIngredient(
@@ -27,6 +25,4 @@ data class RecipeIngredient(
     val recipeId: Int,
     val productId: Int,
     val productName: String,
-    val quantity: Float = 1.0f,
-    val unit: String = "unit",
 )

@@ -62,4 +62,7 @@
     <!-- Button Colors -->
     <color name="colorPrimary">#6750A4</color>
     <color name="colorPrimaryContainer">#EADDFF</color>
+
+    <!-- Shopping Cart Icon -->
+    <color name="shopping_cart_orange">#D06328</color>
 </resources>

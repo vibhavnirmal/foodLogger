@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material 3 Dark Theme - Force dark mode always -->
+    <!-- Material 3 Dark Theme (used automatically by DayNight) -->
     <style name="Theme.FoodLogger" parent="Theme.Material3.Dark.NoActionBar">
         <!-- Primary -->
         <item name="colorPrimary">@color/md_theme_dark_primary</item>
@@ -41,8 +41,7 @@
         <item name="colorOutlineVariant">@color/md_theme_dark_outlineVariant</item>
         
         <!-- Status bar -->
-        <item name="android:statusBarColor">@color/md_theme_dark_surface</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">?attr/colorSurface</item>
         
         <!-- Dialog theme -->
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.FoodLogger.MaterialAlertDialog</item>

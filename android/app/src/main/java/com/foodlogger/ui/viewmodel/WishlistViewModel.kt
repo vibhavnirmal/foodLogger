@@ -71,8 +71,6 @@ class WishlistViewModel @Inject constructor(
             val item = _almostFinishedItems.value.find { it.id == id } ?: return
             repository.updateInventoryItem(
                 id = id,
-                quantity = item.quantity,
-                unit = item.unit,
                 expiryDate = item.expiryDate,
                 storageLocation = item.storageLocation,
                 boughtFromStoreId = item.boughtFromStoreId,
@@ -107,8 +105,6 @@ class WishlistViewModel @Inject constructor(
                     val item = itemsById[id] ?: return@forEach
                     repository.updateInventoryItem(
                         id = id,
-                        quantity = item.quantity,
-                        unit = item.unit,
                         expiryDate = item.expiryDate,
                         storageLocation = item.storageLocation,
                         boughtFromStoreId = item.boughtFromStoreId,
